@@ -1,0 +1,15 @@
+{
+	"name": "isomorphic-dispatcher",
+	"version": "0.0.1",
+	"description": "A redux style dispatcher for use in isomorphic apps.",
+	"author": "Nick Heyn <nick@heyn.io>",
+	"dependencies": {
+	},
+	"devDependencies": {
+		"babel": "*"
+	},
+	"scripts": {
+		"prepublish": "babel ./src/ -d ./lib/"
+	},
+	"license": "MIT"
+}
