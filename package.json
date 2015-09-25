@@ -6,10 +6,18 @@
 	"dependencies": {
 	},
 	"devDependencies": {
-		"babel": "*"
+		"babel": "*",
+		"babel-jest": "*",
+		"jest-cli": "0.5.0"
 	},
 	"scripts": {
+		"test": "jest",
 		"prepublish": "babel ./src/ -d ./lib/"
+	},
+	"jest": {
+		"scriptPreprocessor": "<rootDir>/node_modules/babel-jest",
+		"setupEnvScriptFile": "<rootDir>/jestEnvironment.js",
+		"unmockedModulePathPatterns": ["core-js/.*"]
 	},
 	"license": "MIT"
 }
