@@ -1,7 +1,7 @@
 /**
  * @flow
  */
-type SubscriptionFunc<V> = (val: V) => void;
+
 type GroupSubscriptionFunc<V> = SubscriptionFunc<{[key: string]: V}>
 
 /*------------------------------------------------------------------------------------------------*/
@@ -34,19 +34,6 @@ class SubscriptionHandler<V> {
 	}
 
 	/**
-	 * Create a Subscription Func that can subscribe to a single group, if the publish functions is
-	 * passed an Object (and group is an entry in the Object).
-	 *
-	 * @param subscriber	{(any) => void}						The function to wrap for the handler
-	 *
-	 * @return				{({[key: string]: any}) => void}	The subsciber to add to the handler
-	 */
-	static makeSubscribeToGroupFunc(groupName: string, subscriber: SubscriptionFunc<V>): SubscriptionFunc<{[key: string]: V}> {
-		//TODO, nyi
-		return () => undefined;
-	}
-
-	/**
 	 * Add a new subscriber.
 	 *
 	 * @param subscriber {(any) => void}		The function to handle the published value
@@ -54,8 +41,12 @@ class SubscriptionHandler<V> {
 	 * @return			{SubscriptionHandler}	A new Subscription Handler w/ the given function
 	 */
 	subscribe(subscriber: SubscriptionFunc<V>): SubscriptionHandler<V> {
-		//TODO, nyi
-		return new SubscriptionHandler(this._subscribers);
+		if(typeof subscriber !== 'function') throw new Error('subscriber must be a function');
+
+		var newSubscribers = this._subscribers.slice(0);
+		newSubscribers.push(subscriber);
+
+		return new SubscriptionHandler(newSubscribers);
 	};
 
 	/**
@@ -66,7 +57,13 @@ class SubscriptionHandler<V> {
 	 * @return			{SubscriptionHandler}	A new Subscription Handler w/o the given function
 	 */
 	unsubscribe(subscriber: SubscriptionFunc<V>): SubscriptionHandler<V> {
-		return new SubscriptionHandler(this._subscribers);
+		var indexOfSubscriber = this._subscribers.indexOf(subscriber);
+		if(indexOfSubscriber === -1) throw new Error('subscriber not found');
+
+		var newSubscribers = this._subscribers.slice(0);
+		newSubscribers.splice(indexOfSubscriber, 1);
+
+		return new SubscriptionHandler(newSubscribers);
 	}
 
 	/**
@@ -75,7 +72,9 @@ class SubscriptionHandler<V> {
 	 * @param val	{any}	The value to send to the subscribers
 	 */
 	publish(val: V) {
-		//TODO, nyi
+		this._subscribers.forEach((subsciber) => {
+			subsciber(val);
+		});
 	}
 }
 

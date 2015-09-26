@@ -19,7 +19,7 @@ describe('SubscriptionHandler', () => {
 			subscriptionHandler = subscriptionHandler.subscribe(subscriber);
 		});
 
-		// Test correct subscribers added
+		// Test correct subscribers added					//TODO, change to not use private var
 		expect(subscriptionHandler._subscribers).toEqual(subscribers);
 
 		// Test invalid subscribers throw errors
@@ -29,8 +29,10 @@ describe('SubscriptionHandler', () => {
 			"invalid",
 			new Error()
 		];
-		invalidsubscribers.forEach(()=>{
-			expect(() => subscriptionHandler.subscribe(invalidSubsciber)).toThrow();
+		invalidsubscribers.forEach((invalidsubscriber)=> {
+			expect(() => {
+				subscriptionHandler.subscribe(invalidsubscriber)
+			}).toThrow('subscriber must be a function');
 		});
 	});
 
@@ -44,12 +46,12 @@ describe('SubscriptionHandler', () => {
 
 		// Test removing a func that has never been added
 		expect(() => {
-			subscriptionHandler.unsubscribe(() => undefined);
-		}).toThrow();
+			subscriptionHandler.unsubscribe(jest.genMockFunction());
+		}).toThrow('subscriber not found');
 
 		var fullSubscriptionHandler = subscriptionHandler;
 		subscribers.forEach((subsciber, index) => {
-			// Test removing subsciber
+			// Test removing subsciber						//TODO, change to not use private var
 			var currSubscriptionHandler = fullSubscriptionHandler.unsubscribe(subsciber);
 			expect(currSubscriptionHandler._subscribers.length).toBe(subscribers.length-1);
 
@@ -59,15 +61,28 @@ describe('SubscriptionHandler', () => {
 			// Test removeing same subsciber twice
 			expect(() => {
 				currSubscriptionHandler.unsubscribe(subsciber)
-			}).toThrow();
+			}).toThrow('subscriber not found');
 
 			subscriptionHandler = currSubscriptionHandler;
 		});
 
 		// Test removing a func that has never been added in empty handler
 		expect(() => {
-			subscriptionHandler.unsubscribe(() => undefined);
-		}).toThrow();
+			subscriptionHandler.unsubscribe(jest.genMockFunction());
+		}).toThrow('subscriber not found');
+
+		// Test invalid subscribers throw errors
+		var invalidsubscribers = [
+			null,
+			1,
+			"invalid",
+			new Error()
+		];
+		invalidsubscribers.forEach((invalidsubscriber)=> {
+			expect(() => {
+				subscriptionHandler.unsubscribe(invalidsubscriber)
+			}).toThrow('subscriber not found');
+		});
 	});
 
 	it('can publish a value', () => {
@@ -83,7 +98,24 @@ describe('SubscriptionHandler', () => {
 		subscribers.forEach((subscriber) => {
 			// Test subscriber was called with published value
 			expect(subscriber.mock.calls.length).toBe(1);
-			expect(subscriber.mock.calls[0]).toBe(publishedVal)
+			expect(subscriber.mock.calls[0][0]).toBe(publishedVal)
+		});
+
+		var publishedVal2 = { publishedVal2: true };
+		var publishedVal3 = { publishedVal3: true };
+		var publishedVal4 = { publishedVal4: true };
+
+		// Test subscriber was can be called multiple times w/ diffrent published values
+		subscriptionHandler.publish(publishedVal2);
+		subscriptionHandler.publish(publishedVal3);
+		subscriptionHandler.publish(publishedVal4);
+		subscribers.forEach((subscriber) => {
+			expect(subscriber.mock.calls).toEqual([
+				[publishedVal],
+				[publishedVal2],
+				[publishedVal3],
+				[publishedVal4]
+			]);
 		});
 	});
 });
