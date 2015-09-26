@@ -11,11 +11,14 @@ function getUpdaters() {
 describe('Store', () => {
 	pit('has the given initial state', () => {
 		var initialState = { initialState: true };
-		var store = Store.createStore(initialState);
+		var emptyStore = Store.createStore(initialState);
 		var updaters = getUpdaters();
-		updaters.forEach((updater, index) => {
-			store = store.register(updater);
-		});
+
+		// Add Updaters to store
+		var store = updaters.reduce(
+			(currStore, updater) => currStore.register(updater),
+			emptyStore
+		);
 
 		return store.dispatch({}).then(() => {
 			updaters.forEach((updater) => {
@@ -23,7 +26,7 @@ describe('Store', () => {
 				expect(updater.mock.calls.length).toBe(1);
 
 				// Test the initial state is given
-				var stateArg = updater.mock.calls[0][1];
+				var stateArg = updater.mock.calls[0][0];
 				expect(stateArg.initialState).toBeDefined();
 			});
 		});
@@ -31,61 +34,65 @@ describe('Store', () => {
 
 	pit('passes the dispatched action to the updaters', () => {
 		var dispatchedAction = { dispatchedAction: true };
-		var store = Store.createStore({});
+		var emptyStore = Store.createStore({});
 		var updaters = getUpdaters();
-		updaters.forEach((updater) => {
-			store = store.register(updater);
-		});
+
+		// Add Updaters to store
+		var store = updaters.reduce(
+			(currStore, updater) => currStore.register(updater),
+			emptyStore
+		);
 
 		return store.dispatch(dispatchedAction).then(() => {
 			updaters.forEach((updater) => {
 				// Test the initial state is given
-				var actionArg = updater.mock.calls[0][0];
+				var actionArg = updater.mock.calls[0][1];
 				expect(actionArg).toBe(dispatchedAction);
 			});
 		});
 	});
 
 	pit('has the returned state after dispatch is called', () => {
-		var store = Store.createStore({});
-
+		var emptyStore = Store.createStore({});
 		var updaters = getUpdaters();
-		updaters.forEach((updater, index) => {
-			store = store.register((state, action) => {
+
+		var store = updaters.reduce((currStore, updater, index) => {
+			return currStore.register((state, action) => {
 				// Test state is being updated correctly
 				if(index === 0) expect(state.update).toBeUndefined();
 				else			expect(state.update).toBe(index - 1);
 
 				return updater(state, action);
 			});
-		});
+		}, emptyStore);
 
-		return store.dispatch({}).then((finalState) => {
+		return store.dispatch({}).then((updatedStore) => {
 			updaters.forEach((updater, index) => {
 				// Test state is being updated correctly
-				var stateArg = updater.mock.calls[0][1];
+				var stateArg = updater.mock.calls[0][0];
 
-				if(index === 0) expect(stateArg.update).toBeUndefined();
-				else			expect(stateArg.update).toBe(index - 1);
+				if(index === 0)		expect(stateArg.update).toBeUndefined();
+				else				expect(stateArg.update).toBe(index - 1);
 			});
 
 			// Test final state is correct
+			var finalState = updatedStore.getState();
 			expect(finalState.update).toBe(updaters.length - 1);
 		});
 	});
 
 	pit('can start the dispatch call in middle', () => {
-		var startPoint = {
-			state: { startPointState: true },
-			index: 3
+		var startingPoint = {
+			state: { startingPointState: true },
+			index: 2
 		};
 		var passedAction = { action: 'TEST-ACTION' };
 		var passedArg = { passedArg: true };
-		var store = Store.createStore({});
-
+		var emptyStore = Store.createStore({});
 		var updaters = getUpdaters();
-		updaters.forEach((updater, index) => {
-			store = store.register((state, action, onServer) => {
+
+		var store = updaters.reduce((currStore, updater, index) => {
+			return currStore.register((state, action, onServer) => {
 				// Test the passed arg is correct
 				var onServerReturnVal = { onServerReturnVal: true };
 				var onServerPromise = onServer((arg) => {
@@ -100,9 +107,9 @@ describe('Store', () => {
 
 				return updater(state, action);
 			});
-		});
+		}, emptyStore);
 
-		return store.startDispatchAt(passedAction, startPoint, passedArg).then(() => {
+		return store.startDispatchAt(passedAction, startingPoint, passedArg).then(() => {
 			updaters.forEach((updater, index) => {
 				if(index < startingPoint.index) {
 					// Test first updaters weren't called
@@ -112,32 +119,30 @@ describe('Store', () => {
 					// Test updaters at end are called
 					expect(updater.mock.calls.length).toBe(1);
 
-					// Test starting with the correct state
-					var stateArg = updater.mock.calls[0][1];
-					if(index === startingPoint.index) {
-						expect(stateArg).toBe(startingPoint.state);
-					}
-					else {
-						expect(stateArg.startPointState).toBeDefined();
-					}
-
-					// Test the given action is correct
-					expect(action).toBe(passedAction);
+					// Test given action is correct and starting with the correct state
+					var updaterArgs = updater.mock.calls[0];
+					expect(updaterArgs[0].startingPointState).toBeDefined();
+					expect(updaterArgs[1]).toBe(passedAction);
 				}
 			});
 		});
 	});
 
 	pit('can stop the dispatch call in middle', () => {
+		var stopAt = 2;
 		var dispatchedAction = { dispatchedAction: true };
-		var stopAt = 3;
-		var store = Store.createStore({});
-
+		var serverResponse = { fromIsoFunc: true };
+		var isoFunc = jest.genMockFunction().mockImplementation(
+			() => Promise.resolve(serverResponse)
+		);
+		var emptyStore = Store.createStore({});
 		var updaters = getUpdaters();
-		updaters.forEach((updater, index) => {
-			store = store.register((state, action, onServer) => {
+
+		// Fill store and add iso dispatcher
+		var store = updaters.reduce((currStore, updater, index) => {
+			return currStore.register((state, action, onServer) => {
 				if(index === stopAt) {
-					onServer(() => {
+					return onServer(() => {
 						// Test onServer func is called on the client
 						expect('this not').toBe('CALLED');
 					});
@@ -145,43 +150,40 @@ describe('Store', () => {
 
 				return updater(state, action);
 			});
-		});
+		}, emptyStore.useIsoDispatcher(isoFunc));
 
-		store.useIsoDispatcher((action, startingPoint) => {
-			// Test action is correct
+
+		return store.dispatch(dispatchedAction).then((updatedStore) => {
+			// Test server (the iso dispatcher func) is only called once
+			expect(isoFunc.mock.calls.length).toBe(1);
+
+			// Test action/starting point is correct
+			var [action, startingPoint] = isoFunc.mock.calls[0];
+
 			expect(action).toBe(dispatchedAction);
-
-			// Test state is correct
+			expect(startingPoint.index).toBe(stopAt);
 			expect(startingPoint.state.update).toBe(stopAt - 1);
 
-			// Test index is correct
-			expect(startingPoint.index).toBe(stopAt);
-		});
+			// Test state is what was returned by the server (the iso dispatcher func)
+			expect(updatedStore.getState()).toBe(serverResponse);
 
-		return store.dispatch(dispatchedAction).then(() => {
 			updaters.forEach((updater, index) => {
-				if(index < stopAt) {
-					// Test first updaters weren't called
-					expect(updater.mock.calls.length).toBe(1);
-				}
-				else {
-					// Test updaters at end are called
-					expect(updater.mock.calls.length).toBe(0);
-				}
+				// Test correct updater was called / skipped
+				if(index < stopAt)	expect(updater.mock.calls.length).toBe(1);
+				else 				expect(updater.mock.calls.length).toBe(0);
 			});
 		});
 	});
 
 	pit('returns errors from updaters in the Promise', () => {
 		var updaterError = new Error('updater error');
-		var updaterErrorIndex = 3;
+		var updaterErrorIndex = 2;
 		var store = Store.createStore({});
 
 		var updaters = getUpdaters();
 		updaters.forEach((updater, index) => {
 			store = store.register((state, action) => {
 				if(index === updaterErrorIndex) throw updaterError;
-				updatersCalledCount++;
 
 				// Test only updaters before the error are called
 				expect(index).toBeLessThan(updaterErrorIndex);
@@ -196,11 +198,10 @@ describe('Store', () => {
 			})
 			.catch((err) => {
 				// Test the thrown error is returned in the Promise
-				expect(err).toBe(updaterError);
-			})
-			.then(() => {
+				expect(err.message).toBe(updaterError.message);
+
 				updaters.forEach((updater, index) => {
-					if(index <= updaterErrorIndex) {
+					if(index < updaterErrorIndex) {
 						// Test first updaters weren't called
 						expect(updater.mock.calls.length).toBe(1);
 					}
@@ -212,7 +213,7 @@ describe('Store', () => {
 			});
 	});
 
-	it('validates method arguments', () => {
+	pit('validates method arguments', () => {
 		var promises = [];
 
 		var store = Store.createStore({});
@@ -226,8 +227,9 @@ describe('Store', () => {
 		var invalidActions = [
 			null,
 			1,
-			"invalid",
-			new Error()
+			true,
+			false,
+			"invalid"
 		];
 		invalidActions.forEach((invalidAction) => {
 			promises.push(
@@ -237,7 +239,7 @@ describe('Store', () => {
 					})
 					.catch((err) => {
 						// Test correct error is returned
-						expect(err.message).toContain('Invalid Action Type');
+						expect(err.message).toBe('actions must be objects');
 					})
 			);
 
@@ -248,7 +250,7 @@ describe('Store', () => {
 					})
 					.catch((err) => {
 						// Test correct error is returned
-						expect(err.message).toContain('Invalid Action');
+						expect(err.message).toBe('actions must be objects');
 					})
 			);
 		});
@@ -257,6 +259,7 @@ describe('Store', () => {
 		var invalidStartingPoints = [
 			null,
 			1,
+			true,
 			'invalid',
 			new Error(),
 			{ },
@@ -273,7 +276,7 @@ describe('Store', () => {
 					})
 					.catch((err) => {
 						// Test correct error is returned
-						expect(err.message).toContain('Invalid Starting Point');
+						expect(err.message).toBe('starting point must contain index and state');
 					})
 			);
 		});
@@ -282,6 +285,7 @@ describe('Store', () => {
 		var invalidUpdaters = [
 			null,
 			1,
+			true,
 			"invalid",
 			new Error(),
 			() => undefined
@@ -297,12 +301,12 @@ describe('Store', () => {
 						})
 						.catch((err) => {
 							// Test correct error is returned
-							expect(err.message).toContain('No State');
+							expect(err.message).toBe('a state must be returned from each updater');
 						})
 				);
 			}
 			else {
-				expect(() => store.register(invalidUpdater)).toThrow();
+				expect(() => store.register(invalidUpdater)).toThrow('updaters must be functions');
 			}
 		});
 
