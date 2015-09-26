@@ -41,9 +41,9 @@ class SubscriptionHandler<V> {
 	 *
 	 * @return				{({[key: string]: any}) => void}	The subsciber to add to the handler
 	 */
-	static makeSubscribeToGroupFunc(groupName: string, subscriber: SubscriptionFunc<V>): SubscriptionFunc<{[key: string]: V}> {
-		//TODO, nyi
-		return () => undefined;
+	static makeSubscribeToGroupFunc(groupName: string, subscriber: SubscriptionFunc<V>)
+															: SubscriptionFunc<{[key: string]: V}> {
+		return (groupsObj) => subscriber(groupsObj[groupName]);
 	}
 
 	/**
@@ -54,8 +54,12 @@ class SubscriptionHandler<V> {
 	 * @return			{SubscriptionHandler}	A new Subscription Handler w/ the given function
 	 */
 	subscribe(subscriber: SubscriptionFunc<V>): SubscriptionHandler<V> {
-		//TODO, nyi
-		return new SubscriptionHandler(this._subscribers);
+		if(typeof subscriber !== 'function') throw new Error('subscriber must be a function');
+
+		var newSubscribers = this._subscribers.slice(0);
+		newSubscribers.push(subscriber);
+
+		return new SubscriptionHandler(newSubscribers);
 	};
 
 	/**
@@ -66,7 +70,13 @@ class SubscriptionHandler<V> {
 	 * @return			{SubscriptionHandler}	A new Subscription Handler w/o the given function
 	 */
 	unsubscribe(subscriber: SubscriptionFunc<V>): SubscriptionHandler<V> {
-		return new SubscriptionHandler(this._subscribers);
+		var indexOfSubscriber = this._subscribers.indexOf(subscriber);
+		if(indexOfSubscriber === -1) throw new Error('subscriber not found');
+
+		var newSubscribers = this._subscribers.slice(0);
+		newSubscribers.splice(indexOfSubscriber, 1);
+
+		return new SubscriptionHandler(newSubscribers);
 	}
 
 	/**
@@ -75,7 +85,9 @@ class SubscriptionHandler<V> {
 	 * @param val	{any}	The value to send to the subscribers
 	 */
 	publish(val: V) {
-		//TODO, nyi
+		this._subscribers.forEach((subsciber) => {
+			subsciber(val);
+		});
 	}
 }
 
