@@ -28,7 +28,7 @@ class Store<S> {
 	 * @param finishOnServer	{?StoreIsoFunc}		The function to call when finishing a dispatch
 	 *													call on the server
 	 */
-	constuctor(state: S, updaters: Array<StoreUpdater<S>>, finishOnServer: ?StoreIsoFunc<S>) {
+	constructor(state: S, updaters: Array<StoreUpdater<S>>, finishOnServer: ?StoreIsoFunc<S>) {
 		this._state =			state;
 		this._updaters =		updaters;
 		this._finishOnServer =	finishOnServer;

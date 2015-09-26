@@ -19,7 +19,7 @@ class SubscriptionHandler<V> {
 	 *
 	 * @param subscribers	{Arrat<any>}	A map that contains
 	 */
-	constuctor(subscribers: Array<SubscriptionFunc<V>>) {
+	constructor(subscribers: Array<SubscriptionFunc<V>>) {
 		this._subscribers = subscribers;
 	}
 
@@ -65,7 +65,7 @@ class SubscriptionHandler<V> {
 	 *
 	 * @return			{SubscriptionHandler}	A new Subscription Handler w/o the given function
 	 */
-	unsubscibe(subscriber: SubscriptionFunc<V>): SubscriptionHandler<V> {
+	unsubscribe(subscriber: SubscriptionFunc<V>): SubscriptionHandler<V> {
 		return new SubscriptionHandler(this._subscribers);
 	}
 

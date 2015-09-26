@@ -36,7 +36,7 @@ class Dispatcher {
 	 *															keeps track of the of the function
 	 *															that have subscribed
 	 */
-	constuctor(stores: StoresObject, subscriptionHandler: ?SubscriptionHandler) {
+	constructor(stores: StoresObject, subscriptionHandler: ?SubscriptionHandler) {
 		this._stores = stores;
 		this._subscriptionHandler = subscriptionHandler;
 		this._isDispatching = false;
