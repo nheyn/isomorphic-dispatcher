@@ -8,17 +8,21 @@ Store.createStore = function(initialState) {
 	var store = new Store(initialState, [], null);
 
 	store.getState = jest.genMockFunction().mockReturnValue(initialState);
-	store.dispatch = jest.genMockFunction().mockReturnValue(Promise.resolve(initialState));
+	store.dispatch = jest.genMockFunction().mockReturnValue(Promise.resolve(store));
 
 	return store;
 };
+
 SubscriptionHandler.createSubscriptionHandler = function() {
 	var subscriptionHandler = new SubscriptionHandler([]);
 
+	subscriptionHandler.subscribe = jest.genMockFunction().mockReturnValue(subscriptionHandler);
+	subscriptionHandler.unsubscribe = jest.genMockFunction().mockReturnValue(subscriptionHandler);
 	subscriptionHandler.publish = jest.genMockFunction();
 
 	return subscriptionHandler;
-}
+};
+
 Dispatcher.createDispatcher = function(stores, updateSubscriptionHandler) {
 	return new Dispatcher(
 		stores,
@@ -42,14 +46,13 @@ describe('Dispatcher', () => {
 		var dispatcher = Dispatcher.createDispatcher(stores);
 
 		// Test the given stores are added (and no others)
-		expect(dispatcher._stores).toBe(stores);
+		expect(dispatcher._stores).toEqual(stores);	//TODO, fix to use public dispatcher api
 
 		//Test trying to use invalid stores
 		var invalidStores = [
 			null,
 			1,
-			"invalid",
-			new Error()
+			"invalid"
 		];
 
 		invalidStores.map((invalidStore) => {
@@ -114,7 +117,6 @@ describe('Dispatcher', () => {
 			null,
 			0,
 			"not a store name",
-			new Error(),
 			[],
 			{}
 		];
@@ -127,8 +129,8 @@ describe('Dispatcher', () => {
 
 	it('allows function to subscribe to it', () => {
 		var stores = getStores();
-
-		var dispatcher = Dispatcher.createDispatcher(stores);
+		var subscriptionHandler = SubscriptionHandler.createSubscriptionHandler();
+		var dispatcher = Dispatcher.createDispatcher(stores, subscriptionHandler);
 
 		var subscribers = [
 			jest.genMockFunction(),
@@ -142,21 +144,22 @@ describe('Dispatcher', () => {
 		});
 
 		// Test subscribing to all stores
-		var subscriptionHandler = dispatcher._subscriptionHandler;
+		subscriptionHandler = dispatcher._subscriptionHandler;
 		subscriptionHandler.subscribe.mock.calls.forEach((subscribeArgs) => {
-			expect(subscribers).toContains(subscribeArgs[0]);
+			expect(subscribers).toContain(subscribeArgs[0]);
 		});
 		expect(subscriptionHandler.subscribe.mock.calls.length).toBe(subscribers.length);
 
-		// Test unsubscribing to all stores
+		// Unsubscribing from all stores
 		unsubscribeFuncs.forEach((unsubscribeFunc, index) => {
+			// Test unsubscribing
 			unsubscribeFunc();
-			var subscribersLeft = unsubscribeFuncs.length - index - 1;
-
 			subscriptionHandler.unsubscribe.mock.calls.forEach((unsubscribeArgs) => {
-				expect(subscribers).contains(unsubscribeArgs[0]);
+				expect(subscribers).toContain(unsubscribeArgs[0]);
 			});
-			expect(subscriptionHandler.unsubscribe.mock.calls.length).toBe(subscribers.length);
+
+			// Test when subscriptionHandler.unsubscribe is called correct number of times
+			expect(subscriptionHandler.unsubscribe.mock.calls.length).toBe(index + 1);
 
 			// Test unsubscibing twice
 			expect(() => {
@@ -165,25 +168,30 @@ describe('Dispatcher', () => {
 		});
 
 		// Test subscribing to single stores
-		dispatcher = Dispatcher.createDispatcher(stores);
+		subscriptionHandler = SubscriptionHandler.createSubscriptionHandler();
+		dispatcher = Dispatcher.createDispatcher(stores, subscriptionHandler);
 		unsubscribeFuncs = subscribers.map((subsciber) => {
 			return dispatcher.subscribeTo('a', subsciber);
 		});
 
-		/*subscriptionHandler.subscribe.mock.calls.forEach((subscibeArgs) => {
-			expect(subscribers).contains(subscibeArgs[0]);
-		});*/ //ERROR, won't work because of groups
+		subscriptionHandler = dispatcher._subscriptionHandler;
+		/*/ERROR, won't work because of groups
+		subscriptionHandler.subscribe.mock.calls.forEach((subscibeArgs) => {
+			expect(subscribers).toContain(subscibeArgs[0]);
+		});//*/
 		expect(subscriptionHandler.subscribe.mock.calls.length).toBe(subscribers.length);
 
-		// Test unsubscribing to single stores
+		// Unsubscribing from single stores
 		unsubscribeFuncs.forEach((unsubscribeFunc, index) => {
+			// Test unsubscribing
 			unsubscribeFunc();
-			var subscribersLeft = unsubscribeFuncs.length - index - 1;
+			/*/ERROR, won't work because of groups
+			subscriptionHandler.unsubscribe.mock.calls.forEach((unsubscribeArgs) => {
+				expect(subscribers).toContain(unsubscribeArgs[0]);
+			});//*/
 
-			/*subscriptionHandler.unsubscribe.mock.calls.forEach((unsubscibeArgs) => {
-				expect(subscribers).contains(unsubscibeArgs[0]);
-			});*/ //ERROR, won't work because of groups
-			expect(subscriptionHandler.unsubscribe.mock.calls.length).toBe(subscribers.length);
+			// Test when subscriptionHandler.unsubscribe is called correct number of times
+			expect(subscriptionHandler.unsubscribe.mock.calls.length).toBe(index + 1);
 
 			// Test unsubscibing twice
 			expect(() => {
@@ -195,14 +203,15 @@ describe('Dispatcher', () => {
 		var invalidStoreNames = [
 			null,
 			1,
+			true,
 			"invalid store name",
-			new Error(),
 			{},
 			[]
 		];
 		invalidStoreNames.forEach((invalidStoreName) => {
 			expect(() => {
 				dispatcher.subscribeTo(invalidStoreName, jest.genMockFunction());
+				console.log({ invalidStoreName });
 			}).toThrow();
 		});
 	});
@@ -216,13 +225,14 @@ describe('Dispatcher', () => {
 			e: { stateFor: 'e' }
 		};
 		var stores = getStores(initialStates);
-		var dispatcher = Dispatcher.createDispatcher(stores);
+		var subscriptionHandler = SubscriptionHandler.createSubscriptionHandler();
+		var dispatcher = Dispatcher.createDispatcher(stores, subscriptionHandler);
 
 		return dispatcher.dispatch({}).then(() => {
-			var subscriptionHandler = dispatcher._subscriptionHandler;
+			subscriptionHandler = dispatcher._subscriptionHandler;
 
 			// Test published value is the states of the stores
-			expect(subscriptionHandler.publish.mock.calls[0]).toEqual(initialStates);
+			expect(subscriptionHandler.publish.mock.calls[0][0]).toEqual(initialStates);
 		});
 	});
 });
