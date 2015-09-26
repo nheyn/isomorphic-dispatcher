@@ -2,47 +2,51 @@ var Store = require.requireActual('../src/Store');
 
 function getUpdaters() {
 	return [0, 1, 2, 3, 4].map((index) => {
-		return (state, action) => Object.assign({}, state, { update: index });
+		return jest.genMockFunction().mockImplementation(
+			(state, action) => Object.assign({}, state, { update: index })
+		);
 	});
 }
 
 describe('Store', () => {
-	it('has the given initial state', () => {
+	pit('has the given initial state', () => {
 		var initialState = { initialState: true };
 		var store = Store.createStore(initialState);
-
 		var updaters = getUpdaters();
 		updaters.forEach((updater, index) => {
-			store = store.register((state, action) => {
-				// Test initial state is correct
-				if(index === 0)	expect(state).toBe(initialState);
-				else			expect(state.initialState).toBeDefined();
-
-				return updater(state, action);
-			});
+			store = store.register(updater);
 		});
 
-		store.dispatch({});
+		return store.dispatch({}).then(() => {
+			updaters.forEach((updater) => {
+				// Test the updater was called
+				expect(updater.mock.calls.length).toBe(1);
+
+				// Test the initial state is given
+				var stateArg = updater.mock.calls[0][1];
+				expect(stateArg.initialState).toBeDefined();
+			});
+		});
 	});
 
-	it('passes the dispatched action to the updaters', () => {
+	pit('passes the dispatched action to the updaters', () => {
 		var dispatchedAction = { dispatchedAction: true };
 		var store = Store.createStore({});
-
 		var updaters = getUpdaters();
-		updaters.forEach((updater, index) => {
-			store = store.register((state, action) => {
-				// Test action is correct
-				expect(action).toBe(dispatchedAction);
-
-				return updater(state, action);
-			});
+		updaters.forEach((updater) => {
+			store = store.register(updater);
 		});
 
-		store.dispatch(dispatchedAction);
+		return store.dispatch(dispatchedAction).then(() => {
+			updaters.forEach((updater) => {
+				// Test the initial state is given
+				var actionArg = updater.mock.calls[0][0];
+				expect(actionArg).toBe(dispatchedAction);
+			});
+		});
 	});
 
-	it('has the returned state after dispatch is called', () => {
+	pit('has the returned state after dispatch is called', () => {
 		var store = Store.createStore({});
 
 		var updaters = getUpdaters();
@@ -56,14 +60,21 @@ describe('Store', () => {
 			});
 		});
 
-		store.dispatch({}).then((store) => {
+		return store.dispatch({}).then((finalState) => {
+			updaters.forEach((updater, index) => {
+				// Test state is being updated correctly
+				var stateArg = updater.mock.calls[0][1];
+
+				if(index === 0) expect(stateArg.update).toBeUndefined();
+				else			expect(stateArg.update).toBe(index - 1);
+			});
+
 			// Test final state is correct
-			var finalState = store.getState();
 			expect(finalState.update).toBe(updaters.length - 1);
 		});
 	});
 
-	it('can start the dispatch call in middle', () => {
+	pit('can start the dispatch call in middle', () => {
 		var startPoint = {
 			state: { startPointState: true },
 			index: 3
@@ -75,16 +86,6 @@ describe('Store', () => {
 		var updaters = getUpdaters();
 		updaters.forEach((updater, index) => {
 			store = store.register((state, action, onServer) => {
-				// Test starting in the correct place
-				expect(index).toBeGreaterThan(startingPoint.index - 1);
-
-				// Test starting with the correct state
-				if(index === startingPoint.index)	expect(state).toBe(startingPoint.state);
-				else								expect(state.startPointState).toBeDefined();
-
-				// Test the given action is correct
-				expect(action).toBe(passedAction);
-
 				// Test the passed arg is correct
 				var onServerReturnVal = { onServerReturnVal: true };
 				var onServerPromise = onServer((arg) => {
@@ -100,10 +101,34 @@ describe('Store', () => {
 				return updater(state, action);
 			});
 		});
-		store.startDispatchAt(passedAction, startPoint, passedArg);
+
+		return store.startDispatchAt(passedAction, startPoint, passedArg).then(() => {
+			updaters.forEach((updater, index) => {
+				if(index < startingPoint.index) {
+					// Test first updaters weren't called
+					expect(updater.mock.calls.length).toBe(0);
+				}
+				else {
+					// Test updaters at end are called
+					expect(updater.mock.calls.length).toBe(1);
+
+					// Test starting with the correct state
+					var stateArg = updater.mock.calls[0][1];
+					if(index === startingPoint.index) {
+						expect(stateArg).toBe(startingPoint.state);
+					}
+					else {
+						expect(stateArg.startPointState).toBeDefined();
+					}
+
+					// Test the given action is correct
+					expect(action).toBe(passedAction);
+				}
+			});
+		});
 	});
 
-	it('can stop the dispatch call in middle', () => {
+	pit('can stop the dispatch call in middle', () => {
 		var dispatchedAction = { dispatchedAction: true };
 		var stopAt = 3;
 		var store = Store.createStore({});
@@ -117,9 +142,6 @@ describe('Store', () => {
 						expect('this not').toBe('CALLED');
 					});
 				}
-
-				// Test only functions before the server is called
-				expect(index).isLessThan(stopAt);
 
 				return updater(state, action);
 			});
@@ -136,13 +158,23 @@ describe('Store', () => {
 			expect(startingPoint.index).toBe(stopAt);
 		});
 
-		store.dispatch(dispatchedAction);
+		return store.dispatch(dispatchedAction).then(() => {
+			updaters.forEach((updater, index) => {
+				if(index < stopAt) {
+					// Test first updaters weren't called
+					expect(updater.mock.calls.length).toBe(1);
+				}
+				else {
+					// Test updaters at end are called
+					expect(updater.mock.calls.length).toBe(0);
+				}
+			});
+		});
 	});
 
-	it('returns errors from updaters in the Promise', () => {
+	pit('returns errors from updaters in the Promise', () => {
 		var updaterError = new Error('updater error');
 		var updaterErrorIndex = 3;
-		var updatersCalledCount = 0;
 		var store = Store.createStore({});
 
 		var updaters = getUpdaters();
@@ -158,21 +190,31 @@ describe('Store', () => {
 			});
 		});
 
-		store.dispatch({})
+		return store.dispatch({})
 			.then((store) => {
-				// Test dispatch returns an error (not new store)
-				expect('this not').toBe('CALLED');
+				throw new Error('store.dispatch return state, instead of an error');
 			})
 			.catch((err) => {
-				// Test all updaters before the error where called
-				expect(updatersCalledCount).toBe(updaterErrorIndex);
-
 				// Test the thrown error is returned in the Promise
 				expect(err).toBe(updaterError);
+			})
+			.then(() => {
+				updaters.forEach((updater, index) => {
+					if(index <= updaterErrorIndex) {
+						// Test first updaters weren't called
+						expect(updater.mock.calls.length).toBe(1);
+					}
+					else {
+						// Test updaters at end are called
+						expect(updater.mock.calls.length).toBe(0);
+					}
+				});
 			});
 	});
 
 	it('validates method arguments', () => {
+		var promises = [];
+
 		var store = Store.createStore({});
 
 		var updaters = getUpdaters();
@@ -188,25 +230,27 @@ describe('Store', () => {
 			new Error()
 		];
 		invalidActions.forEach((invalidAction) => {
-			store.dispatch(invalidAction)
-				.then(() => {
-					// Test dispatch returns an error (not new store)
-					expect('this not').toBe('CALLED');
-				})
-				.catch((err) => {
-					// Test correct error is returned
-					expect(err.message).toContain('Invalid Action Type');
-				});
+			promises.push(
+				store.dispatch(invalidAction)
+					.then(() => {
+						throw new Error('store.dispatch return state, instead of an error');
+					})
+					.catch((err) => {
+						// Test correct error is returned
+						expect(err.message).toContain('Invalid Action Type');
+					})
+			);
 
-			store.startDispatchAt(invalidAction, { index: updaters.length - 1, state: {} }, {})
-				.then(() => {
-					// Test dispatch returns an error (not new store)
-					expect('this not').toBe('CALLED');
-				})
-				.catch((err) => {
-					// Test correct error is returned
-					expect(err.message).toContain('Invalid Action');
-				});
+			promises.push(
+				store.startDispatchAt(invalidAction, { index: updaters.length - 1, state: {} }, {})
+					.then(() => {
+						throw new Error('store.dispatch return state, instead of an error');
+					})
+					.catch((err) => {
+						// Test correct error is returned
+						expect(err.message).toContain('Invalid Action');
+					})
+			);
 		});
 
 		// Test incorrect starting point
@@ -222,15 +266,16 @@ describe('Store', () => {
 			{ index: -1, state: {} }
 		];
 		invalidStartingPoints.forEach((invalidStartingPoint) => {
-			store.startDispatchAt({}, invalidStartingPoint, {})
-				.then(() => {
-					// Test dispatch returns an error (not new store)
-					expect('this not').toBe('CALLED');
-				})
-				.catch((err) => {
-					// Test correct error is returned
-					expect(err.message).toContain('Invalid Starting Point');
-				});
+			promises.push(
+				store.startDispatchAt({}, invalidStartingPoint, {})
+					.then(() => {
+						throw new Error('store.dispatch return state, instead of an error');
+					})
+					.catch((err) => {
+						// Test correct error is returned
+						expect(err.message).toContain('Invalid Starting Point');
+					})
+			);
 		});
 
 		// Test invalid updaters
@@ -245,19 +290,22 @@ describe('Store', () => {
 			if(typeof invalidUpdater === 'function') {
 				var invalidStore = store.register(invalidUpdater);
 
-				invalidStore.dispatch({})
-					.then(() => {
-						// Test dispatch returns an error (not new store)
-						expect('this not').toBe('CALLED');
-					})
-					.catch((err) => {
-						// Test correct error is returned
-						expect(err.message).toContain('No State');
-					});
+				promises.push(
+					invalidStore.dispatch({})
+						.then(() => {
+							throw new Error('store.dispatch return state, instead of an error');
+						})
+						.catch((err) => {
+							// Test correct error is returned
+							expect(err.message).toContain('No State');
+						})
+				);
 			}
 			else {
 				expect(() => store.register(invalidUpdater)).toThrow();
 			}
 		});
+
+		return Promise.all(promises);
 	});
 });

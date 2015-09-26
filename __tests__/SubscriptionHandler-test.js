@@ -1,46 +1,46 @@
 var SubscriptionHandler = require.requireActual('../src/SubscriptionHandler');
 
+function getSubscribers() {
+	return [
+		jest.genMockFunction(),
+		jest.genMockFunction(),
+		jest.genMockFunction(),
+		jest.genMockFunction(),
+		jest.genMockFunction()
+	];
+}
+
 describe('SubscriptionHandler', () => {
 	it('can add subscribers', () => {
-		var subscibersToCall = 5;
-		var subscibersCalled = 0;
+		var subscribers = getSubscribers();
 		var subscriptionHandler = SubscriptionHandler.createSubscriptionHandler();
 
-		for(var i = 0; i < subscibersToCall; i++) {
-			subscriptionHandler.subscribe(() => {
-				subscibersCalled++;
-			});
-		}
+		subscribers.forEach((subscriber) => {
+			subscriptionHandler = subscriptionHandler.subscribe(subscriber);
+		});
 
-		setTimeout(() => {
-			// Test all subscribers where called
-			expect(subscibersCalled).toBe(subscibersToCall);
-		}, 10);
+		// Test correct subscribers added
+		expect(subscriptionHandler._subscribers).toEqual(subscribers);
 
-		// Test invalid subscibers throw errors
-		var invalidSubscibers = [
+		// Test invalid subscribers throw errors
+		var invalidsubscribers = [
 			null,
 			1,
 			"invalid",
 			new Error()
 		];
-		invalidSubscibers.forEach(()=>{
+		invalidsubscribers.forEach(()=>{
 			expect(() => subscriptionHandler.subscribe(invalidSubsciber)).toThrow();
 		});
 	});
 
 	it('can remove subscribers', () => {
-		var subscibersToCall = 5;
-		var subscibers = [];
-		var subscibersCalled = null;
+		var subscribers = getSubscribers();
 		var subscriptionHandler = SubscriptionHandler.createSubscriptionHandler();
 
-		for(var i = 0; i < subscibersToCall; i++) {
-			var subsciber = () => { subscibersCalled[i] = true; };
-			subscibers.push(subsciber);
-
-			subscriptionHandler = subscriptionHandler.subscribe(subsciber);
-		}
+		subscribers.forEach((subscriber) => {
+			subscriptionHandler = subscriptionHandler.subscribe(subscriber);
+		});
 
 		// Test removing a func that has never been added
 		expect(() => {
@@ -48,34 +48,18 @@ describe('SubscriptionHandler', () => {
 		}).toThrow();
 
 		var fullSubscriptionHandler = subscriptionHandler;
-		subscibers.forEach((subsciber, index) => {
+		subscribers.forEach((subsciber, index) => {
+			// Test removing subsciber
 			var currSubscriptionHandler = fullSubscriptionHandler.unsubscribe(subsciber);
-
-			subscibersCalled = [];
-			currSubscriptionHandler.publish();
-
-			setTimeout(() => {
-				for(var i = 0; i<subscibersToCall; i++) {
-					if(i > index)	expect(subscibersCalled[i]).toBeFalsy();
-					else			expect(subscibersCalled[i]).toBeTruthy();
-				}
-			}, 10);
+			expect(currSubscriptionHandler._subscribers.length).toBe(subscribers.length-1);
 
 			currSubscriptionHandler = subscriptionHandler.unsubscribe(subsciber);
-			subscibersCalled = [];
-			currSubscriptionHandler.publish();
-
-			setTimeout(() => {
-				for(var i = 0; i<subscibersToCall; i++) {
-					if(i === index)	expect(subscibersCalled[i]).toBeFalsy();
-					else			expect(subscibersCalled[i]).toBeTruthy();
-				}
-			}, 10);
+			expect(currSubscriptionHandler._subscribers.length).toBe(subscribers.length-1-index);
 
 			// Test removeing same subsciber twice
 			expect(() => {
 				currSubscriptionHandler.unsubscribe(subsciber)
-			});
+			}).toThrow();
 
 			subscriptionHandler = currSubscriptionHandler;
 		});
@@ -88,15 +72,18 @@ describe('SubscriptionHandler', () => {
 
 	it('can publish a value', () => {
 		var publishedVal = { publishedVal: true };
+		var subscribers = getSubscribers();
 		var subscriptionHandler = SubscriptionHandler.createSubscriptionHandler();
 
-		for(var i = 0; i < 5; i++) {
-			subscriptionHandler.subscribe((val) => {
-				// Test correct value is published
-				expect(val).toBe(publishedVal);
-			});
-		}
+		subscribers.forEach((subscriber) => {
+			subscriptionHandler = subscriptionHandler.subscribe(subscriber);
+		});
 
-		subscriptionHandler.publish(val);
+		subscriptionHandler.publish(publishedVal);
+		subscribers.forEach((subscriber) => {
+			// Test subscriber was called with published value
+			expect(subscriber.mock.calls.length).toBe(1);
+			expect(subscriber.mock.calls[0]).toBe(publishedVal)
+		});
 	});
 });
