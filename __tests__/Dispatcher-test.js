@@ -323,8 +323,79 @@ describe('ClientDispatcher', () => {
 });
 
 describe('ServerDispatcher', () => {
-	it('can start stores in the middle', () => {
-		//TODO, nyi: start dispatch in middle
-		//TODO, nyi: has invalid start point when starting in middle
+	pit('can start stores in the middle', () => {
+		var promises = [];
+
+		var initialStates = {
+			a: { stateFor: 'a' },
+			b: { stateFor: 'b' },
+			c: { stateFor: 'c' },
+			d: { stateFor: 'd' },
+			e: { stateFor: 'e' }
+		};
+		var action = { type: 'test action' };
+		var startingPoints = {
+			a: { index: 0, state: { newStateFor: 'a' } },
+			c: { index: 0, state: { newStateFor: 'c' } },
+			e: { index: 0, state: { newStateFor: 'e' } }
+		};
+		var passedArg = { passed: 'arg' };
+		var stores = getStores(initialStates);
+		var dispatcher = Dispatcher.createServerDispatcher(stores);
+
+		promises.push(
+			dispatcher.startDispatchAt(action, startingPoints, passedArg).then((newStates) => {
+				for(var storeName in stores) {
+					var store = stores[storeName];
+					var startDispatchAtCalls = store.startDispatchAt.mock.calls;
+					var startingPoint = startingPoints[storeName];
+
+					// Test state is correct
+					if(startingPoint) {
+						expect(newStates[storeName]).toEqual(startingPoint.state);
+					}
+					else {
+						expect(newStates[storeName]).toBeUndefined();
+					}
+
+					// Test correct the store.startDispatchAt was called
+					if(startingPoint) {
+						expect(startDispatchAtCalls.length).toBe(1);
+						expect(startDispatchAtCalls[0]).toEqual([action, startingPoint, passedArg]);
+					}
+					else {
+						expect(startDispatchAtCalls.length).toBe(0);
+					}
+				}
+			})
+		);
+
+		// Test invalid starting points
+		var invalidStartingPoints = [
+			null,
+			1,
+			true,
+			{ a: null },
+			{ a: 1 },
+			{ a: true }
+		];
+		invalidStartingPoints.forEach((invalidStartingPoint) => {
+			dispatcher = Dispatcher.createServerDispatcher(stores);
+			promises.push(
+				dispatcher.startDispatchAt(action, invalidStartingPoint, passedArg)
+					.then(() => {
+						throw new Error(
+							'dispatcher.startDispatchAt return state, instead of an error'
+						);
+					})
+					.catch((err) => {
+						expect(err.message).toBe(
+							'starting point must be an object of starting points'
+						);
+					})
+			);
+		});
+
+		return Promise.all(promises);
 	});
 });
