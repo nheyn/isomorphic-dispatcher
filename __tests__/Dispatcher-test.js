@@ -5,10 +5,16 @@ var SubscriptionHandler = jest.genMockFromModule('../src/SubscriptionHandler');
 
 // Use manul mock
 Store.createStore = function(initialState) {
-	var store = new Store(initialState, [], null);
+	var state = Object.assign({}, initialState);
+	var store = new Store(state, [], null);
 
-	store.getState = jest.genMockFunction().mockReturnValue(initialState);
+	store.getState = jest.genMockFunction().mockImplementation(() => state);
 	store.dispatch = jest.genMockFunction().mockReturnValue(Promise.resolve(store));
+	store.startDispatchAt = jest.genMockFunction().mockImplementation((_, startingPoint) => {
+		state = startingPoint.state;
+		return Promise.resolve(store);
+	});
+	store.useIsoDispatcher = jest.genMockFunction().mockReturnValue(store);
 
 	return store;
 };
@@ -109,7 +115,7 @@ describe('Dispatcher', () => {
 		Object.keys(initialStates).forEach((storeName) => {
 			var currentState = dispatcher.getStateFor(storeName);
 
-			expect(currentState).toBe(initialStates[storeName]);
+			expect(currentState).toEqual(initialStates[storeName]);
 		});
 
 		// Tests trying to get state from invalid stores
@@ -238,8 +244,81 @@ describe('Dispatcher', () => {
 });
 
 describe('ClientDispatcher', () => {
-	it('calls iso function when onServer is called', () => {
-		//TODO, nyi: add updater that uses onServer, and call dispatch
+	pit.only('calls iso function when onServer is called', () => {
+		var initialStates = {
+			a: { stateFor: 'a' },
+			b: { stateFor: 'b' },
+			c: { stateFor: 'c' },
+			d: { stateFor: 'd' },
+			e: { stateFor: 'e' }
+		};
+		var statesFromServer = {
+			a: { stateFromServerFor: 'a' },
+			c: { stateFromServerFor: 'c' },
+			e: { stateFromServerFor: 'e' }
+		};
+		var storesToPause = Object.keys(statesFromServer);
+		var pauseAtStartingPoints = {};
+		storesToPause.forEach((storeName) => {
+			pauseAtStartingPoints[storeName] = { index: 0, state: initialStates[storeName] };
+		});
+		var dispatchedAction = { type: 'test action' };
+		var finishOnServer = jest.genMockFunction().mockReturnValue(
+			Promise.resolve(statesFromServer)
+		);
+		var stores = getStores(initialStates);
+
+		// Update mock for stores that 'call' onServer
+		storesToPause.forEach((storeToPause) => {
+			var store = stores[storeToPause];
+
+			store.dispatch = jest.genMockFunction().mockImplementation((action) => {
+				// Test 'useIsoDispatcher' was called by ClientDispatcher
+				expect(store.useIsoDispatcher.mock.calls.length).toBe(1);
+
+				// Test correct action is sent
+				expect(action).toEqual(dispatchedAction);
+
+				// Call function passed to 'useIsoDispatcher'
+				var useIsoDispatcherFunc = store.useIsoDispatcher.mock.calls[0][0];
+				useIsoDispatcherFunc(action, pauseAtStartingPoints[storeToPause]);
+
+				return Promise.resolve(store);
+			});
+
+			stores[storeToPause] = store;
+		});
+
+		var dispatcher = Dispatcher.createClientDispatcher(finishOnServer, stores);
+
+		// Perform dispatch
+		return dispatcher.dispatch(dispatchedAction).then((newStates) => {
+			for(var storeName in newStates) {
+				var newState = newStates[storeName];
+
+				// Test finish on server was called
+				expect(finishOnServer.mock.calls.length).toBe(1);
+				finishOnServer.mock.calls.forEach(([action, pausePoints]) => {
+					// Test correct action is sent
+					expect(action).toEqual(dispatchedAction);
+
+					// Test no extra stores where paused
+					var pausePointStoreNames = Object.keys(pausePoints);
+					expect(pausePointStoreNames.length).toBe(storesToPause.length);
+
+					pausePointStoreNames.forEach((pausePointStoreName) => {
+						var pausePoint = pausePoints[pausePointStoreName];
+
+						// Test correct pause point index and state
+						expect(pausePoint.index).toBe(0);
+						expect(pausePoint.state).toEqual(initialStates[pausePointStoreName]);
+
+						// Test correct stores where paused
+						expect(storesToPause).toContain(pausePointStoreName);
+					});
+				});
+			}
+		});
 	});
 });
 
