@@ -14,7 +14,7 @@ Store.createStore = function(initialState) {
 		state = startingPoint.state;
 		return Promise.resolve(store);
 	});
-	store.useIsoDispatcher = jest.genMockFunction().mockReturnValue(store);
+	store.finishOnServerUsing = jest.genMockFunction().mockReturnValue(store);
 
 	return store;
 };
@@ -217,7 +217,6 @@ describe('Dispatcher', () => {
 		invalidStoreNames.forEach((invalidStoreName) => {
 			expect(() => {
 				dispatcher.subscribeTo(invalidStoreName, jest.genMockFunction());
-				console.log({ invalidStoreName });
 			}).toThrow();
 		});
 	});
@@ -244,7 +243,7 @@ describe('Dispatcher', () => {
 });
 
 describe('ClientDispatcher', () => {
-	pit.only('calls iso function when onServer is called', () => {
+	pit('calls iso function when onServer is called', () => {
 		var initialStates = {
 			a: { stateFor: 'a' },
 			b: { stateFor: 'b' },
@@ -274,14 +273,14 @@ describe('ClientDispatcher', () => {
 
 			store.dispatch = jest.genMockFunction().mockImplementation((action) => {
 				// Test 'useIsoDispatcher' was called by ClientDispatcher
-				expect(store.useIsoDispatcher.mock.calls.length).toBe(1);
+				expect(store.finishOnServerUsing.mock.calls.length).toBe(1);
 
 				// Test correct action is sent
 				expect(action).toEqual(dispatchedAction);
 
 				// Call function passed to 'useIsoDispatcher'
-				var useIsoDispatcherFunc = store.useIsoDispatcher.mock.calls[0][0];
-				useIsoDispatcherFunc(action, pauseAtStartingPoints[storeToPause]);
+				var useFinishOnServerUsing = store.finishOnServerUsing.mock.calls[0][0];
+				useFinishOnServerUsing(action, pauseAtStartingPoints[storeToPause]);
 
 				return Promise.resolve(store);
 			});

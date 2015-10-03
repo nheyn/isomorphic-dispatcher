@@ -153,9 +153,8 @@ flow
 Basic usage is given above. More detailed documentation is before class/function definitions within the code.
 
 ### Plans
-* Change Store method name 'useIsoDispatcher' to 'finishOnServerUsing'
 * Move utilities functions / classes to their own files
-* Update Store to take the arg passed to 'onServer' the same way it adds 'useIsoDispatcher'
+* Update Store to take the arg passed to 'onServer' the same way it adds 'finishOnServerUsing'
 * Update internal data structures to use [Immutable.js](http://facebook.github.io/immutable-js/)
 * Only call subscribers when the state of a Store has mutated
 * Update Store to allow 'onServer' to be called asynchronously

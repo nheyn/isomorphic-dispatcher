@@ -150,7 +150,7 @@ describe('Store', () => {
 
 				return updater(state, action);
 			});
-		}, emptyStore.useIsoDispatcher(isoFunc));
+		}, emptyStore.finishOnServerUsing(isoFunc));
 
 
 		return store.dispatch(dispatchedAction).then((updatedStore) => {

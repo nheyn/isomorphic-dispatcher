@@ -59,7 +59,7 @@ class Store<S> {
 	 *
 	 * @return					{Store}			A new Store with the given function
 	 */
-	useIsoDispatcher(newFinishOnServer: StoreIsoFunc): Store<S> {
+	finishOnServerUsing(newFinishOnServer: StoreIsoFunc): Store<S> {
 		if(typeof newFinishOnServer !== 'function') {
 			throw new Error('iso dispatcher must be a function');
 		}

@@ -326,7 +326,7 @@ class ClientDispatcher extends Dispatcher {
 		this._stores = mapObject(this._stores, (store, storeName) => {
 			promisePlaceholders[storeName] = new PromisePlaceholder();
 
-			return store.useIsoDispatcher(
+			return store.finishOnServerUsing(
 				this._createFinishOnServer(storeName, promisePlaceholders[storeName])
 			);
 		});
@@ -552,7 +552,7 @@ function isValidStoreName(storeName: string): boolean {
 
 function isValidStore(possibleStore: any): boolean {
 	const publicStoreMethods = [
-		'useIsoDispatcher',
+		'finishOnServerUsing',
 		'register',
 		'dispatch',
 		'startDispatchAt',
