@@ -1,3 +1,5 @@
+jest.autoMockOff();	//NOTE, needed because jest.dontMock() dosn't work
+
 var Dispatcher = require.requireActual('../src/Dispatcher');
 
 var Store = jest.genMockFromModule('../src/Store');

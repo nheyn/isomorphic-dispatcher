@@ -14,6 +14,12 @@ type DispatcherIsoFunc = (
 	pausePoints: {[key: string]: StartingPoint<any>}
 ) => Promise<{[key: string]: any}>;
 
+const makeSubscribeToGroupFunc = require('./utils/makeSubscribeToGroupFunc');
+const isValidStore = require('./utils/isValidStore');
+const mapObject = require('./utils/mapObject');
+const objectPromise = require('./utils/objectPromise');
+
+
 /*------------------------------------------------------------------------------------------------*/
 //	--- Dispatcher ---
 /*------------------------------------------------------------------------------------------------*/
@@ -41,7 +47,7 @@ class Dispatcher {
 			throw new Error('store must be passed as an object');
 		}
 		const validatedStores = mapObject(stores, (store, storeName) => {
-			if(!isValidStoreName(storeName))	throw new Error('store name must be a string');
+			if(typeof storeName !== 'string')	throw new Error('store name must be a string');
 			if(!isValidStore(store))			throw new Error('invalid store')
 
 			return store;
@@ -230,8 +236,8 @@ class Dispatcher {
 	 */
 	subscribeTo(storeName: string, subscriber: Subscriber): UnsubscibeFunc {
 		// Check inputs
-		if(!isValidStoreName(storeName)) throw new Error('store name must be a string');
-		if(!this._stores[storeName]) throw new Error('store(${storeName}) dose not exist');
+		if(typeof storeName !== 'string')	throw new Error('store name must be a string');
+		if(!this._stores[storeName])		throw new Error('store(${storeName}) dose not exist');
 
 		// Create subscribtion function for single store
 		const storeSubscriber = makeSubscribeToGroupFunc(storeName, subscriber);
@@ -526,71 +532,6 @@ class ServerDispatcher extends Dispatcher {
 			return newStates;
 		});
 	}
-}
-
-/*------------------------------------------------------------------------------------------------*/
-//	--- Helper functions ---
-/*------------------------------------------------------------------------------------------------*/
-/**
- * Create a Subscription Func that can subscribe to a single group, if the publish functions is
- * passed an Object (and group is an entry in the Object).
- *
- * @param subscriber	{(any) => void}						The function to wrap for the handler
- *
- * @return				{({[key: string]: any}) => void}	The subsciber to add to the handler
- */
-function makeSubscribeToGroupFunc<V>(
-	groupName: string,
-	subscriber: SubscriptionFunc<V>
-) : SubscriptionFunc<{[key: string]: V}> {
-	return (groupsObj) => subscriber(groupsObj[groupName]);
-}
-
-function isValidStoreName(storeName: string): boolean {
-	return typeof storeName === 'string';
-}
-
-function isValidStore(possibleStore: any): boolean {
-	const publicStoreMethods = [
-		'finishOnServerUsing',
-		'register',
-		'dispatch',
-		'startDispatchAt',
-		'getState'
-	];
-
-	return publicStoreMethods.reduce(
-		(containsPervMethod, methodName) => {
-			if(!containsPervMethod) return false;
-
-			return possibleStore[methodName] && typeof possibleStore[methodName] === 'function';
-		},
-		true
-	);
-}
-
-function mapObject<V, R>(
-	obj: {[key: string]: V},
-	mapFunc: (val: V, key: string) => R
-): {[key: string]: R} {
-	let results = {};
-	for(let key in obj) {
-		results[key] = mapFunc(obj[key], key);
-	}
-	return results;
-}
-
-function objectPromise(promises: {[key: string]: Promise<any>}): Promise<{[key: string]: any}> {
-	const keys = Object.keys(promises);
-	const promiseArray = keys.map((key) => promises[key]);
-
-	return Promise.all(promiseArray).then((vals) => {
-		let results = {};
-		vals.forEach((val, index) => {
-			results[keys[index]] = val;
-		});
-		return results;
-	});
 }
 
 /*------------------------------------------------------------------------------------------------*/
