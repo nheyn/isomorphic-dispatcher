@@ -43,7 +43,7 @@ class SubscriptionHandler<V> {
 	subscribe(subscriber: SubscriptionFunc<V>): SubscriptionHandler<V> {
 		if(typeof subscriber !== 'function') throw new Error('subscriber must be a function');
 
-		var newSubscribers = this._subscribers.slice(0);
+		let newSubscribers = this._subscribers.slice(0);
 		newSubscribers.push(subscriber);
 
 		return new SubscriptionHandler(newSubscribers);
@@ -57,10 +57,10 @@ class SubscriptionHandler<V> {
 	 * @return			{SubscriptionHandler}	A new Subscription Handler w/o the given function
 	 */
 	unsubscribe(subscriber: SubscriptionFunc<V>): SubscriptionHandler<V> {
-		var indexOfSubscriber = this._subscribers.indexOf(subscriber);
+		const indexOfSubscriber = this._subscribers.indexOf(subscriber);
 		if(indexOfSubscriber === -1) throw new Error('subscriber not found');
 
-		var newSubscribers = this._subscribers.slice(0);
+		let newSubscribers = this._subscribers.slice(0);
 		newSubscribers.splice(indexOfSubscriber, 1);
 
 		return new SubscriptionHandler(newSubscribers);

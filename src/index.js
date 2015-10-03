@@ -1,6 +1,6 @@
-var Store = require('./Store');
-var Dispatcher = require('./Dispatcher');
-var SubscriptionHandler = require('./SubscriptionHandler');
+const Store = require('./Store');
+const Dispatcher = require('./Dispatcher');
+const SubscriptionHandler = require('./SubscriptionHandler');
 
 /**
  * Create a new Store.

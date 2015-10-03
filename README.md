@@ -153,8 +153,6 @@ flow
 Basic usage is given above. More detailed documentation is before class/function definitions within the code.
 
 ### Plans
-* Add index.js for public API
-* Update to use let/const
 * Change Store method name 'useIsoDispatcher' to 'finishOnServerUsing'
 * Move utilities functions / classes to their own files
 * Update Store to take the arg passed to 'onServer' the same way it adds 'useIsoDispatcher'

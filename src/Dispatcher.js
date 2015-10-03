@@ -2,6 +2,7 @@
  * @flow
  */
 import type * as Store from './Store';
+import type * as SubscriptionHandler from './SubscriptionHandler';
 
 type StoresObject = {[key: string]: Store<any>};
 type StatesObject = {[key: string]: any};
@@ -39,7 +40,7 @@ class Dispatcher {
 		if(!stores || typeof stores !== 'object') {
 			throw new Error('store must be passed as an object');
 		}
-		var validatedStores = mapObject(stores, (store, storeName) => {
+		const validatedStores = mapObject(stores, (store, storeName) => {
 			if(!isValidStoreName(storeName))	throw new Error('store name must be a string');
 			if(!isValidStore(store))			throw new Error('invalid store')
 
@@ -129,7 +130,7 @@ class Dispatcher {
 		this._isDispatching = true;
 
 		// Perform dispatch
-		var resultPromises = mapObject(this._stores, (store, storeName) => {
+		const resultPromises = mapObject(this._stores, (store, storeName) => {
 			return store.dispatch(action).then((updatedStore) => {
 				// Save store for current dispatch
 				this._stores[storeName] = updatedStore;
@@ -197,7 +198,7 @@ class Dispatcher {
 		}
 		this._subscriptionHandler = this._subscriptionHandler.subscribe(subscriber);
 
-		var hasUnsubscribed = false;
+		let hasUnsubscribed = false;
 		return () => {
 			if(!this._subscriptionHandler) {
 				throw new Error(
@@ -233,7 +234,7 @@ class Dispatcher {
 		if(!this._stores[storeName]) throw new Error('store(${storeName}) dose not exist');
 
 		// Create subscribtion function for single store
-		var storeSubscriber = makeSubscribeToGroupFunc(storeName, subscriber);
+		const storeSubscriber = makeSubscribeToGroupFunc(storeName, subscriber);
 
 		// Subscribe
 		if(!this._subscriptionHandler) {
@@ -301,10 +302,10 @@ class ClientDispatcher extends Dispatcher {
 	 * See super class
 	 */
 	dispatch(action: Action): Promise<{[key: string]: any}> {
-		var promisePlaceholders = this._startDispatch();
+		const promisePlaceholders = this._startDispatch();
 
 		// Call dispatch
-		var newStatesPromise = super.dispatch(action);
+		const newStatesPromise = super.dispatch(action);
 
 		// Call finishOnServer
 		//NOTE, because directly after 'super.dispatch' onServer must be called
@@ -321,7 +322,7 @@ class ClientDispatcher extends Dispatcher {
 		this._pausePoints = {};
 
 		//NOTE, not all (or possible no) placeholders are used
-		var promisePlaceholders = {};
+		let promisePlaceholders = {};
 		this._stores = mapObject(this._stores, (store, storeName) => {
 			promisePlaceholders[storeName] = new PromisePlaceholder();
 
@@ -353,7 +354,7 @@ class ClientDispatcher extends Dispatcher {
 		// Call server
 		return this._finishOnServer(action, this._pausePoints).then((newStates) => {
 			// Send results to results promises for each store
-			for(var storeName in newStates) {
+			for(let storeName in newStates) {
 				if(!promisePlaceholders[storeName]) {
 					throw new Error(`invalid store(${storeName}) returned from server`);
 				}
@@ -365,7 +366,7 @@ class ClientDispatcher extends Dispatcher {
 			}
 		}).catch((err) => {
 			// Send error to promise for each store
-			for(var storeName in promisePlaceholders) {
+			for(let storeName in promisePlaceholders) {
 				promisePlaceholders[storeName].reject(err);
 			}
 		});
@@ -375,7 +376,7 @@ class ClientDispatcher extends Dispatcher {
 		storeName: string,
 		statePromise: Promise<S>
 	): (action: Action, startingPoint: StartingPoint<S>) => Promise<S> {
-		var store = this._stores[storeName];
+		const store = this._stores[storeName];
 		if(!store) {
 			throw new Error(`cannot create finishOnServer for non-existing store(${storeName})`);
 		}
@@ -489,7 +490,7 @@ class ServerDispatcher extends Dispatcher {
 			return Promise.reject(new Error('starting point must be an object of starting points'));
 		}
 		for(var storeName in startingPoints) {
-			var startingPoint = startingPoints[storeName];
+			const startingPoint = startingPoints[storeName];
 			if(!startingPoint || typeof startingPoint !== 'object') {
 				return Promise.reject(
 					new Error('starting point must be an object of starting points')
@@ -501,8 +502,8 @@ class ServerDispatcher extends Dispatcher {
 		this._isDispatching = true;
 
 		// Perform dispatch for given stores
-		var resultPromises = mapObject(startingPoints, (startingPoint, storeName) => {
-			var store = this._stores[storeName];
+		const resultPromises = mapObject(startingPoints, (startingPoint, storeName) => {
+			const store = this._stores[storeName];
 			if(!store)	throw new Error('invalid store returned from the server');
 
 			return store.startDispatchAt(action, startingPoint, arg).then((updatedStore) => {
@@ -550,7 +551,7 @@ function isValidStoreName(storeName: string): boolean {
 }
 
 function isValidStore(possibleStore: any): boolean {
-	var publicStoreMethods = [
+	const publicStoreMethods = [
 		'useIsoDispatcher',
 		'register',
 		'dispatch',
@@ -572,19 +573,19 @@ function mapObject<V, R>(
 	obj: {[key: string]: V},
 	mapFunc: (val: V, key: string) => R
 ): {[key: string]: R} {
-	var results = {};
-	for(var key in obj) {
+	let results = {};
+	for(let key in obj) {
 		results[key] = mapFunc(obj[key], key);
 	}
 	return results;
 }
 
 function objectPromise(promises: {[key: string]: Promise<any>}): Promise<{[key: string]: any}> {
-	var keys = Object.keys(promises);
-	var promiseArray = keys.map((key) => promises[key]);
+	const keys = Object.keys(promises);
+	const promiseArray = keys.map((key) => promises[key]);
 
 	return Promise.all(promiseArray).then((vals) => {
-		var results = {};
+		let results = {};
 		vals.forEach((val, index) => {
 			results[keys[index]] = val;
 		});

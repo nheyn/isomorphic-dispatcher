@@ -77,7 +77,7 @@ class Store<S> {
 	register(updater: StoreUpdater<S>): Store<S> {
 		if(typeof updater !== 'function') throw new Error('updaters must be functions');
 
-		var newUpdaters = this._updaters.slice(0);
+		let newUpdaters = this._updaters.slice(0);
 		newUpdaters.push(updater);
 
 		return new Store(this._state, newUpdaters, this._finishOnServer);
@@ -127,8 +127,8 @@ class Store<S> {
 
 
 		// Dispatch to each updater
-		var lastOnServerFunc = null;
-		var newStatePromise = this._updaters.reduce(
+		let lastOnServerFunc = null;
+		const newStatePromise = this._updaters.reduce(
 			(currStatePromise, updater, index) => {
 				// Check to see if this updater should be called
 				if(index < startingPoint.index)	return currStatePromise;
@@ -141,8 +141,8 @@ class Store<S> {
 					if(lastOnServerFunc && lastOnServerFunc.isFinishingOnServer()) return state;
 
 					// Call updater
-					var onServerObj = this._makeOnServer(action, { state, index }, arg);
-					var nextStatePromise = updater(state, action, onServerObj.func);
+					const onServerObj = this._makeOnServer(action, { state, index }, arg);
+					const nextStatePromise = updater(state, action, onServerObj.func);
 
 					// Get ready for next reducer
 					lastOnServerFunc = onServerObj;
@@ -159,7 +159,7 @@ class Store<S> {
 				throw new Error('a state must be returned from each updater');
 			}
 
-			var newStore = new Store(newState, this._updaters, this._finishOnServer);
+			const newStore = new Store(newState, this._updaters, this._finishOnServer);
 			return Promise.resolve(newStore);
 		});
 	}
@@ -174,8 +174,8 @@ class Store<S> {
 	}
 
 	_makeOnServer(action: Action, startingPoint: StartingPoint<S>, arg?: any): OnServerObj<S> {
-		var finishingOnServer = false;
-		var finishOnServer = this._finishOnServer;
+		let finishingOnServer = false;
+		const finishOnServer = this._finishOnServer;
 		return {
 			func(onServerFunc) {
 				if(finishOnServer) {
