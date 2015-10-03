@@ -1,8 +1,6 @@
 /**
  * @flow
  */
-var SubscriptionHandler = require('./SubscriptionHandler');
-
 import type * as Store from './Store';
 
 type StoresObject = {[key: string]: Store<any>};
