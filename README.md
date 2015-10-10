@@ -14,6 +14,8 @@ Based on [async-dispatcher](https://github.com/nheyn/async-dispatcher) and [redu
 ### Dependencies
 * ES2015(ES6) Promises
 	* Must include an ES2015 compatible Promises library, tested using [Babel polyfill](https://babeljs.io/docs/usage/polyfill/)
+* Immutable JS
+	* Automatically included with isomorphic-dispatcher
 
 ### Usage
 ##### Store
@@ -161,7 +163,6 @@ flow
 Basic usage is given above. More detailed documentation is before class/function definitions within the code.
 
 ### Plans
-* Update internal data structures to use [Immutable.js](http://facebook.github.io/immutable-js/)
 * Only call subscribers when the state of a Store has mutated
 * Update Store to allow 'onServer' to be called asynchronously
 * Create React.js bindings, that allows

@@ -5,6 +5,7 @@
 	"author": "Nick Heyn <nick@heyn.io>",
 	"main": "<rootDir>/lib/index.js",
 	"dependencies": {
+		"immutable": "*"
 	},
 	"devDependencies": {
 		"babel": "*",
