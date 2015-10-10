@@ -1,6 +1,8 @@
 /**
  * @flow
  */
+const Immutable = require('immutable');
+
 type OnServerFunc<S> = (arg: any) => MaybePromise<S>;
 type OnServerObj<S> = {
 	func: OnServerFunc<S>,
@@ -21,7 +23,7 @@ type StoreUpdater<S> = (
  */
 class Store<S> {
 	_state: S;
-	_updaters: Array<StoreUpdater<S>>;
+	_updaters: Immutable.List<StoreUpdater<S>>;
 	_finishOnServer: ?StoreIsoFunc<S>;
 	_arg: ?any;
 
@@ -29,7 +31,7 @@ class Store<S> {
 	 * Store constuctor (use Store.createStore).
 	 *
 	 * @param state				{any}					The current state of the object
-	 * @param updaters			{Array<StoreUpdater>}	The updaters that can mutate the Store
+	 * @param updaters			{List<StoreUpdater>}	The updaters that can mutate the Store
 	 * @param finishOnServer	{?StoreIsoFunc}			The function to call when finishing a
 	 *													dispatch call on the server
 	 * @param arg				{?any}					The arg that will passed to the function
@@ -37,7 +39,7 @@ class Store<S> {
 	 */
 	constructor(
 		state: S,
-		updaters: Array<StoreUpdater<S>>,
+		updaters: Immutable.List<StoreUpdater<S>>,
 		finishOnServer?: ?StoreIsoFunc<S>,
 		arg?: ?any
 	) {
@@ -60,7 +62,7 @@ class Store<S> {
 	 * @return				{Store}	The new Store
 	 */
 	static createStore(initialState: S): Store<S> {
-		return new Store(initialState, [], undefined, undefined);
+		return new Store(initialState, Immutable.List(), undefined, undefined);
 	}
 
 	/**
@@ -105,8 +107,7 @@ class Store<S> {
 	register(updater: StoreUpdater<S>): Store<S> {
 		if(typeof updater !== 'function') throw new Error('updaters must be functions');
 
-		let newUpdaters = this._updaters.slice(0);
-		newUpdaters.push(updater);
+		const newUpdaters = this._updaters.push(updater);
 
 		return new Store(this._state, newUpdaters, this._finishOnServer, this._arg);
 	}
@@ -142,11 +143,11 @@ class Store<S> {
 			return Promise.reject(new Error('actions must be objects'));
 		}
 		if(
-			!startingPoint								||
-			startingPoint.state === undefined			||
-			typeof startingPoint.index !== 'number'		||
-			startingPoint.index < 0						||
-			startingPoint.index >= this._updaters.length
+			!startingPoint									||
+			startingPoint.state === undefined				||
+			typeof startingPoint.index !== 'number'			||
+			startingPoint.index < 0							||
+			startingPoint.index >= this._updaters.count()
 		) {
 			return Promise.reject(new Error('starting point must contain index and state'))
 		}
