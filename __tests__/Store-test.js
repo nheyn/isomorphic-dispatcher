@@ -1,3 +1,5 @@
+jest.autoMockOff();	//NOTE, needed because jest.dontMock() dosn't work
+
 var Store = require.requireActual('../src/Store');
 
 function getUpdaters() {

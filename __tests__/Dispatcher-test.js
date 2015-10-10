@@ -44,7 +44,7 @@ describe('Dispatcher', () => {
 		var dispatcher = Dispatcher.createDispatcher(stores);
 
 		// Test the given stores are added (and no others)
-		expect(dispatcher._stores).toEqual(stores);	//TODO, fix to use public dispatcher api
+		expect(dispatcher._stores.toJS()).toEqual(stores);	//TODO, fix to use public dispatcher api
 
 		//Test trying to use invalid stores
 		var invalidStores = [

@@ -1,10 +1,11 @@
 {
 	"name": "isomorphic-dispatcher",
-	"version": "0.0.3",
+	"version": "0.1.0",
 	"description": "A redux style dispatcher for use in isomorphic apps.",
 	"author": "Nick Heyn <nick@heyn.io>",
 	"main": "<rootDir>/lib/index.js",
 	"dependencies": {
+		"immutable": "*"
 	},
 	"devDependencies": {
 		"babel": "*",

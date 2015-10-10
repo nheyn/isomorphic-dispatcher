@@ -1,10 +1,13 @@
 /**
  * @flow
  */
+const Immutable = require('immutable');
+
 import type * as Store from './Store';
 import type * as SubscriptionHandler from './SubscriptionHandler';
 
 type StoresObject = {[key: string]: Store<any>};
+type StoresMap = Immutable.Map<string, Store<any>>;
 type StatesObject = {[key: string]: any};
 type StartingPointObject = {[key: string]: StartingPoint<any>};
 type Subscriber = SubscriptionFunc<StatesObject>;
@@ -19,6 +22,7 @@ const makeSubscribeToGroupFunc = require('./utils/makeSubscribeToGroupFunc');
 const isValidStore = require('./utils/isValidStore');
 const mapObject = require('./utils/mapObject');
 const objectPromise = require('./utils/objectPromise');
+const resolveMapOfPromises = require('./utils/resolveMapOfPromises');
 
 
 /*------------------------------------------------------------------------------------------------*/
@@ -29,32 +33,27 @@ const objectPromise = require('./utils/objectPromise');
  */
 class Dispatcher {
 
-	_stores: StoresObject;
+	_stores: StoresMap;
 	_subscriptionHandler: ?SubscriptionHandler;
 	_isDispatching: boolean;
 
 	/**
 	 * Create a Dispatch from the given Stores.
 	 *
-	 * @param stores				{StoresObject}			The stores that the action are
+	 * @param stores				{StoresMap}				The stores that the action are
 	 *														dispatched to
 	 * @param subscriptionHandler	{?SubscriptionHandler}	The subscription handler that
 	 *														keeps track of the of the function
 	 *														that have subscribed
 	 */
-	constructor(stores: StoresObject, subscriptionHandler: ?SubscriptionHandler) {
-		// Check inputs
-		if(!stores || typeof stores !== 'object') {
-			throw new Error('store must be passed as an object');
-		}
-		const validatedStores = mapObject(stores, (store, storeName) => {
+	constructor(stores: StoresMap, subscriptionHandler: ?SubscriptionHandler) {
+		// Check stores are valid
+		stores.forEach((store, storeName) => {
 			if(typeof storeName !== 'string')	throw new Error('store name must be a string');
-			if(!isValidStore(store))			throw new Error('invalid store')
-
-			return store;
+			if(!isValidStore(store))			throw new Error('invalid store');
 		});
 
-		this._stores = validatedStores;
+		this._stores = stores;
 		this._subscriptionHandler = subscriptionHandler;
 		this._isDispatching = false;
 	}
@@ -62,18 +61,24 @@ class Dispatcher {
 	/**
 	 * Create a Dispatch from the given Stores.
 	 *
-	 * @param stores				{StoresObject}	The stores that the action are dispatched to
+	 * @param stores				{StoresMap}				The stores that the action are
+	 *														dispatched to
 	 * @param subscriptionHandler	{?SubscriptionHandler}	The subscription handler that
 	 *														keeps track of the of the function
 	 *														that have subscribed
 	 *
-	 * @return						{Dispatcher}	The new Dispatcher
+	 * @return						{Dispatcher}			The new Dispatcher
 	 */
 	static createDispatcher(
 		stores: StoresObject,
 		subscriptionHandler: ?SubscriptionHandler
 	): Dispatcher {
-		return new Dispatcher(stores, subscriptionHandler);
+		// Check stores is basic js object
+		if(!stores || typeof stores !== 'object') {
+			throw new Error('store must be passed as an object');
+		}
+
+		return new Dispatcher(Immutable.Map(stores), subscriptionHandler);
 	}
 
 	/**
@@ -94,7 +99,12 @@ class Dispatcher {
 		stores: StoresObject,
 		subscriptionHandler: ?SubscriptionHandler
 	): Dispatcher {
-		return new ClientDispatcher(finishOnServer, stores, subscriptionHandler);
+		// Check stores is basic js object
+		if(!stores || typeof stores !== 'object') {
+			throw new Error('store must be passed as an object');
+		}
+
+		return new ClientDispatcher(finishOnServer, Immutable.Map(stores), subscriptionHandler);
 	}
 
 	/**
@@ -118,7 +128,12 @@ class Dispatcher {
 		stores: StoresObject,
 		subscriptionHandler: ?SubscriptionHandler
 	): ServerDispatcher {
-		return new ServerDispatcher(getOnServerArg, stores, subscriptionHandler);
+		// Check stores is basic js object
+		if(!stores || typeof stores !== 'object') {
+			throw new Error('store must be passed as an object');
+		}
+
+		return new ServerDispatcher(getOnServerArg, Immutable.Map(stores), subscriptionHandler);
 	}
 
 	 /**
@@ -143,24 +158,22 @@ class Dispatcher {
 		this._isDispatching = true;
 
 		// Perform dispatch
-		const resultPromises = mapObject(this._stores, (store, storeName) => {
-			return store.dispatch(action).then((updatedStore) => {
-				// Save store for current dispatch
-				this._stores[storeName] = updatedStore;
+		const dispatchedStoresPromises = this._stores.map((store) => store.dispatch(action));
 
-				return updatedStore.getState();
-			});
-		});
-
-		return objectPromise(resultPromises).then((newStates) => {
+		return resolveMapOfPromises(dispatchedStoresPromises).then((newStores) => {
 			// Finish dispatch
 			this._isDispatching = false;
 
+			// Save Stores
+			this._stores = newStores;
+
 			// Send state to subscribers
+			const newStates = newStores.map((store) => store.getState()).toJS();
 			if(this._subscriptionHandler) {
 				this._subscriptionHandler.publish(newStates);
 			}
 
+			// Get states
 			return newStates;
 		});
 	}
@@ -175,7 +188,8 @@ class Dispatcher {
 	getStateForAll(): {[key: string]: any} {
 		if(this._isDispatching) throw new Error('cannot get state until dispatch is finished');
 
-		return mapObject(this._stores, (store) => store.getState());
+		const states = this._stores.map((store) => store.getState());
+		return states.toJS();
 	}
 
 	/**
@@ -189,9 +203,11 @@ class Dispatcher {
 	 */
 	getStateFor(storeName: string): any {
 		if(this._isDispatching) throw new Error('cannot get state until dispatch is finished');
-		if(!this._stores[storeName]) throw new Error(`store name(${storeName}) does not exist`);
+		if(!this._stores.has(storeName)) {
+			throw new Error(`store name(${storeName}) does not exist`);
+		}
 
-		return this._stores[storeName].getState();
+		return this._stores.get(storeName).getState();
 	}
 
 	/**
@@ -243,8 +259,10 @@ class Dispatcher {
 	 */
 	subscribeTo(storeName: string, subscriber: Subscriber): UnsubscibeFunc {
 		// Check inputs
-		if(typeof storeName !== 'string')	throw new Error('store name must be a string');
-		if(!this._stores[storeName])		throw new Error('store(${storeName}) dose not exist');
+		if(typeof storeName !== 'string') throw new Error('store name must be a string');
+		if(!this._stores.has(storeName)) {
+			throw new Error('store(${storeName}) dose not exist');
+		}
 
 		// Create subscribtion function for single store
 		const storeSubscriber = makeSubscribeToGroupFunc(storeName, subscriber);
@@ -299,7 +317,7 @@ class ClientDispatcher extends Dispatcher {
 	 */
 	constructor(
 		finishOnServer: DispatcherIsoFunc,
-		stores: StoresObject,
+		stores: StoresMap,
 		subscriptionHandler: ?SubscriptionHandler
 	) {
 		if(typeof finishOnServer !== 'function') {
@@ -331,16 +349,17 @@ class ClientDispatcher extends Dispatcher {
 		});
 	}
 
-	_startDispatch(): {[key: string]: PromisePlaceholder<any>} {
+	_startDispatch(): Immutable.Map<string, PromisePlaceholder<any>> {
 		this._pausePoints = {};
 
 		//NOTE, not all (or possible no) placeholders are used
-		let promisePlaceholders = {};
-		this._stores = mapObject(this._stores, (store, storeName) => {
-			promisePlaceholders[storeName] = new PromisePlaceholder();
+		let promisePlaceholders = Immutable.Map();
+		this._stores = this._stores.map((store, storeName) => {
+			const currPromisePlaceholder = new PromisePlaceholder()
+			promisePlaceholders.set(storeName, currPromisePlaceholder);
 
 			return store.finishOnServerUsing(
-				this._createFinishOnServer(storeName, promisePlaceholders[storeName])
+				this._createFinishOnServer(storeName, currPromisePlaceholder.getPromise())
 			);
 		});
 
@@ -353,8 +372,8 @@ class ClientDispatcher extends Dispatcher {
 
 	_performFinishOnServer(
 		action: Action,
-		promisePlaceholders: {[key: string]: PromisePlaceholder<any>}
-	): {[key: string]: Promise<any>} {
+		promisePlaceholders: Immutable.Map<string, PromisePlaceholder<any>>
+	) {
 		// Check dispatch is happening
 		if(!this._pausePoints) {
 			throw new Error('finishOnServer should not be called if dispatch has not been called');
@@ -365,23 +384,23 @@ class ClientDispatcher extends Dispatcher {
 		if(Object.keys(this._pausePoints).length === 0) return;
 
 		// Call server
-		return this._finishOnServer(action, this._pausePoints).then((newStates) => {
+		this._finishOnServer(action, this._pausePoints).then((newStates) => {
 			// Send results to results promises for each store
 			for(let storeName in newStates) {
-				if(!promisePlaceholders[storeName]) {
+				if(!promisePlaceholders.has(storeName)) {
 					throw new Error(`invalid store(${storeName}) returned from server`);
 				}
 				if(!newStates[storeName]) {
 					throw new Error(`missing store(${storeName}) returned from server`);
 				}
 
-				promisePlaceholders[storeName].resolve(newStates[storeName]);
+				promisePlaceholders.get(storeName).resolve(newStates[storeName]);
 			}
 		}).catch((err) => {
 			// Send error to promise for each store
-			for(let storeName in promisePlaceholders) {
-				promisePlaceholders[storeName].reject(err);
-			}
+			promisePlaceholders.forEach((promisePlaceholder) => {
+				promisePlaceholder.reject(err);
+			});
 		});
 	}
 
@@ -389,15 +408,23 @@ class ClientDispatcher extends Dispatcher {
 		storeName: string,
 		statePromise: Promise<S>
 	): (action: Action, startingPoint: StartingPoint<S>) => Promise<S> {
-		const store = this._stores[storeName];
-		if(!store) {
-			throw new Error(`cannot create finishOnServer for non-existing store(${storeName})`);
+		if(!this._stores.has(storeName)) {
+			throw new Error(
+				`cannot create finishOnServer for non-existing store(${storeName})`
+			);
 		}
 
 		return (action, pausePoint) => {
+			if(!this._stores.has(storeName)) {	//NOTE, repeated for flowtype
+				throw new Error(
+					`cannot create finishOnServer for non-existing store(${storeName})`
+				);
+			}
+			const store = this._stores.get(storeName);
+
 			this._addStoreToFinishOnServer(storeName, pausePoint);
 
-			return statePromise;
+			return store.getState();
 		};
 	}
 
@@ -429,7 +456,7 @@ class ServerDispatcher extends Dispatcher {
 	 */
 	constructor(
 		getOnServerArg: () => any | Promise<any>,
-		stores: StoresObject,
+		stores: StoresMap,
 		subscriptionHandler: ?SubscriptionHandler
 	) {
 		if(typeof getOnServerArg !== 'function') {
@@ -477,7 +504,7 @@ class ServerDispatcher extends Dispatcher {
 		if(!startingPoints || typeof startingPoints !== 'object') {
 			return Promise.reject(new Error('starting point must be an object of starting points'));
 		}
-		for(var storeName in startingPoints) {
+		for(let storeName in startingPoints) {
 			const startingPoint = startingPoints[storeName];
 			if(!startingPoint || typeof startingPoint !== 'object') {
 				return Promise.reject(
@@ -496,12 +523,12 @@ class ServerDispatcher extends Dispatcher {
 		const dispatchedStoresPromise = updatedStoresPromise.then((updatedStores) => {
 			// Peform dispatch
 			return objectPromise(mapObject(startingPoints, (startingPoint, storeName) => {
-				const updatedStore = updatedStores[storeName];
+				const updatedStore = updatedStores.get(storeName);
 				const dispatchedStorePromise = updatedStore.startDispatchAt(action, startingPoint);
 
 				return dispatchedStorePromise.then((dispatchedStore) => {
 					// Save results
-					this._stores[storeName] = dispatchedStore;
+					this._stores = this._stores.set(storeName, dispatchedStore);
 
 					return dispatchedStore;
 				});
@@ -514,13 +541,13 @@ class ServerDispatcher extends Dispatcher {
 		});
 	}
 
-	_getStoresWithNewArg(): Promise<StoresObject> {
+	_getStoresWithNewArg(): Promise<StoresMap> {
 		// Get arg
 		const currentArg = this._getOnServerArg();
 
 		// Get updated stores
 		return Promise.resolve(currentArg).then((onServerArg) => {
-			return mapObject(this._stores, (store, storeName) => store.setOnServerArg(onServerArg));
+			return this._stores.map((store) => store.setOnServerArg(onServerArg));
 		});
 	}
 }
