@@ -14,6 +14,8 @@ Based on [async-dispatcher](https://github.com/nheyn/async-dispatcher) and [redu
 ### Dependencies
 * ES2015(ES6) Promises
 	* Must include an ES2015 compatible Promises library, tested using [Babel polyfill](https://babeljs.io/docs/usage/polyfill/)
+* Immutable JS
+	* Automatically included with isomorphic-dispatcher
 
 ### Usage
 ##### Store
@@ -102,7 +104,9 @@ unsubscribe();
 ```
 
 ##### ClientDispatcher
-The Dispatcher for the client is created using the 'createClientDispatcher' function. The first argument is the same array of Stores that passed to the 'createServerDispatcher' function on server. Its second argument is a function that should call the 'startDispatchAt' method of the ServerDispatcher.
+The Dispatcher for the client is created using the 'createClientDispatcher' function.
+The first argument is the same array of Stores that passed to the 'createServerDispatcher' function on server.
+Its second argument is a function that should call the 'startDispatchAt' method of the ServerDispatcher.
 ```
 function handleDispatchOnServer = (action, startingPoints) => {
 	return Promise((resolve, reject) => {
@@ -116,18 +120,24 @@ var serverDispatcher = IsomorphicDispatcher.createClientDispatcher(stores, handl
 ```
 
 ##### ServerDispatcher
-The Dispatcher for the client is created using the function 'createServerDispatcher', which takes the same argument as 'createDispatcher'.
+The Dispatcher for the client is created using the 'createServerDispatcher' function.
+The first argument is the same array of Stores that passed to the 'createServerDispatcher' function on server.
+Its second argument is a function that will get the arg that should be passed the the onServer callback, in the updaters.
+It will be called each time dispatch, or startDispatchAt, is called.
+The return value from this function can be a Promise.
 ```
-var serverDispatcher = IsomorphicDispatcher.createServerDispatcher(stores);
+var serverDispatcher = IsomorphicDispatcher.createServerDispatcher(stores, () => {
+	var arg = {};
+
+	return arg;
+});
 ```
 
-To connection with the ClientDispatcher, call the 'startDispatchAt' method when the second argument of 'createClientDispatcher' function is called. It should be passed the actions and starting points from the 'createClientDispatcher' callback, along with an object that will be passed to 'onServer' in the updaters of the Store. The states returned from 'startDispatchAt' (on the server) should be returned as a Promise in the 'createClientDispatcher' callback.
+To connection with the ClientDispatcher, call the 'startDispatchAt' method when the second argument of 'createClientDispatcher' function is called. It should be passed the actions and starting points from the 'createClientDispatcher' callback. The states returned from 'startDispatchAt' (on the server) should be returned as a Promise in the 'createClientDispatcher' callback (on the client).
 ```
 // Call after 'handleDispatchOnServer' is called on the server
 function handleDispatchFromClient(action, startingPoints) {
-	var serverArgs = {};
-
-	return serverDispatcher.startDispatchAt(action, startingPoints, serverArgs);
+	return serverDispatcher.startDispatchAt(action, startingPoints);
 }
 ```
 
@@ -153,16 +163,11 @@ flow
 Basic usage is given above. More detailed documentation is before class/function definitions within the code.
 
 ### Plans
-* Add index.js for public API
-* Change Store method name 'useIsoDispatcher' to 'useToFinishOnServer'
-* Update Store to take the arg passed to 'onServer' the same way it adds 'useIsoDispatcher'
-* Update to use let/const
-* Update internal data structures to use [Immutable.js](http://facebook.github.io/immutable-js/)
 * Only call subscribers when the state of a Store has mutated
 * Update Store to allow 'onServer' to be called asynchronously
 * Create React.js bindings, that allows
 	* Shortcut (mixin) for add/removing subscriber functions to the dispatcher
 	* Stores to be added within a react class (for parent/child components communication)
 * Create Express middleware and/or Socket.io bindings, that automatically connects the client and the server Dispatchers
-* Add flow type definitions for public API
+* Create flow type definitions for public API
 * Get documentation from code

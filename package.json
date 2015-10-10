@@ -1,14 +1,16 @@
 {
 	"name": "isomorphic-dispatcher",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"description": "A redux style dispatcher for use in isomorphic apps.",
 	"author": "Nick Heyn <nick@heyn.io>",
+	"main": "<rootDir>/lib/index.js",
 	"dependencies": {
+		"immutable": "*"
 	},
 	"devDependencies": {
 		"babel": "*",
 		"babel-jest": "*",
-		"jest-cli": "0.5.0"
+		"jest-cli": "*"
 	},
 	"scripts": {
 		"test": "jest",

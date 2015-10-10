@@ -1,3 +1,5 @@
+jest.autoMockOff();	//NOTE, needed because jest.dontMock() dosn't work
+
 var SubscriptionHandler = require.requireActual('../src/SubscriptionHandler');
 
 function getSubscribers() {
@@ -20,7 +22,7 @@ describe('SubscriptionHandler', () => {
 		});
 
 		// Test correct subscribers added					//TODO, change to not use private var
-		expect(subscriptionHandler._subscribers).toEqual(subscribers);
+		expect(subscriptionHandler._subscribers.toJS()).toEqual(subscribers);
 
 		// Test invalid subscribers throw errors
 		var invalidsubscribers = [
@@ -53,10 +55,10 @@ describe('SubscriptionHandler', () => {
 		subscribers.forEach((subsciber, index) => {
 			// Test removing subsciber						//TODO, change to not use private var
 			var currSubscriptionHandler = fullSubscriptionHandler.unsubscribe(subsciber);
-			expect(currSubscriptionHandler._subscribers.length).toBe(subscribers.length-1);
+			expect(currSubscriptionHandler._subscribers.count()).toBe(subscribers.length-1);
 
 			currSubscriptionHandler = subscriptionHandler.unsubscribe(subsciber);
-			expect(currSubscriptionHandler._subscribers.length).toBe(subscribers.length-1-index);
+			expect(currSubscriptionHandler._subscribers.count()).toBe(subscribers.length-1-index);
 
 			// Test removeing same subsciber twice
 			expect(() => {

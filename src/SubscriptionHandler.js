@@ -1,8 +1,7 @@
 /**
  * @flow
  */
-
-type GroupSubscriptionFunc<V> = SubscriptionFunc<{[key: string]: V}>
+const Immutable = require('immutable');
 
 /*------------------------------------------------------------------------------------------------*/
 //	--- Subscription Handler ---
@@ -12,14 +11,14 @@ type GroupSubscriptionFunc<V> = SubscriptionFunc<{[key: string]: V}>
  * the publish() method is called.
  */
 class SubscriptionHandler<V> {
-	_subscribers: Array<SubscriptionFunc<V>>;
+	_subscribers: Immutable.List<SubscriptionFunc<V>>;
 
 	/*
 	 * SubscriptionHandler constuctor.
 	 *
 	 * @param subscribers	{Arrat<any>}	A map that contains
 	 */
-	constructor(subscribers: Array<SubscriptionFunc<V>>) {
+	constructor(subscribers: Immutable.List<SubscriptionFunc<V>>) {
 		this._subscribers = subscribers;
 	}
 
@@ -30,7 +29,8 @@ class SubscriptionHandler<V> {
 	 * @return				{SubscriptionHandler}			The new handler
 	 */
 	static createSubscriptionHandler(): SubscriptionHandler<V> {
-		return new SubscriptionHandler([]);
+		//ERROR, Immutable.List() returns undefined ???????????????
+		return new SubscriptionHandler(Immutable.List());
 	}
 
 	/**
@@ -43,10 +43,7 @@ class SubscriptionHandler<V> {
 	subscribe(subscriber: SubscriptionFunc<V>): SubscriptionHandler<V> {
 		if(typeof subscriber !== 'function') throw new Error('subscriber must be a function');
 
-		var newSubscribers = this._subscribers.slice(0);
-		newSubscribers.push(subscriber);
-
-		return new SubscriptionHandler(newSubscribers);
+		return new SubscriptionHandler(this._subscribers.push(subscriber));
 	};
 
 	/**
@@ -57,13 +54,10 @@ class SubscriptionHandler<V> {
 	 * @return			{SubscriptionHandler}	A new Subscription Handler w/o the given function
 	 */
 	unsubscribe(subscriber: SubscriptionFunc<V>): SubscriptionHandler<V> {
-		var indexOfSubscriber = this._subscribers.indexOf(subscriber);
+		const indexOfSubscriber = this._subscribers.indexOf(subscriber);
 		if(indexOfSubscriber === -1) throw new Error('subscriber not found');
 
-		var newSubscribers = this._subscribers.slice(0);
-		newSubscribers.splice(indexOfSubscriber, 1);
-
-		return new SubscriptionHandler(newSubscribers);
+		return new SubscriptionHandler(this._subscribers.delete(indexOfSubscriber));
 	}
 
 	/**

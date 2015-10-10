@@ -1,6 +1,8 @@
 /**
  * @flow
  */
+const Immutable = require('immutable');
+
 type OnServerFunc<S> = (arg: any) => MaybePromise<S>;
 type OnServerObj<S> = {
 	func: OnServerFunc<S>,
@@ -21,21 +23,35 @@ type StoreUpdater<S> = (
  */
 class Store<S> {
 	_state: S;
-	_updaters: Array<StoreUpdater<S>>;
+	_updaters: Immutable.List<StoreUpdater<S>>;
 	_finishOnServer: ?StoreIsoFunc<S>;
+	_arg: ?any;
 
 	/**
 	 * Store constuctor (use Store.createStore).
 	 *
 	 * @param state				{any}					The current state of the object
-	 * @param updaters			{Array<StoreUpdater>}	The updaters that can mutate the Store
-	 * @param finishOnServer	{?StoreIsoFunc}		The function to call when finishing a dispatch
-	 *													call on the server
+	 * @param updaters			{List<StoreUpdater>}	The updaters that can mutate the Store
+	 * @param finishOnServer	{?StoreIsoFunc}			The function to call when finishing a
+	 *													dispatch call on the server
+	 * @param arg				{?any}					The arg that will passed to the function
+	 *													given to onServer, when on the server
 	 */
-	constructor(state: S, updaters: Array<StoreUpdater<S>>, finishOnServer: ?StoreIsoFunc<S>) {
+	constructor(
+		state: S,
+		updaters: Immutable.List<StoreUpdater<S>>,
+		finishOnServer?: ?StoreIsoFunc<S>,
+		arg?: ?any
+	) {
+		// Check stores is not set up to be used on both the server and client
+		if(arg && finishOnServer) {
+			throw new Error('Unable to use both a finish on server function and argument');
+		}
+
 		this._state =			state;
 		this._updaters =		updaters;
 		this._finishOnServer =	finishOnServer;
+		this._arg =				arg;
 	}
 
 	/**
@@ -46,7 +62,7 @@ class Store<S> {
 	 * @return				{Store}	The new Store
 	 */
 	static createStore(initialState: S): Store<S> {
-		return new Store(initialState, [], null);
+		return new Store(initialState, Immutable.List(), undefined, undefined);
 	}
 
 	/**
@@ -59,12 +75,24 @@ class Store<S> {
 	 *
 	 * @return					{Store}			A new Store with the given function
 	 */
-	useIsoDispatcher(newFinishOnServer: StoreIsoFunc): Store<S> {
+	finishOnServerUsing(newFinishOnServer: StoreIsoFunc): Store<S> {
 		if(typeof newFinishOnServer !== 'function') {
 			throw new Error('iso dispatcher must be a function');
 		}
 
-		return new Store(this._state, this._updaters, newFinishOnServer);
+		return new Store(this._state, this._updaters, newFinishOnServer, undefined);
+	}
+
+	/**
+	 * Set the argument that will be passed to the function given to the onServer function, in the
+	 * updater functions.
+	 *
+	 * @param arg	{any}	The argument to use in the function given to onServer
+	 *
+	 * @return		{Store}	A new Store with the given arg
+	 */
+	setOnServerArg(arg: any): Store<S> {
+		return new Store(this._state, this._updaters, undefined, arg);
 	}
 
 	/**
@@ -72,15 +100,16 @@ class Store<S> {
 	 *
 	 * @param updater	{StoreUpdater}	The new function that is able to update the store's state
 	 *
+	 * @throws							An error when the given updater is not a function
+	 *
 	 * @return			{Store}			A new Store with the new updater
 	 */
 	register(updater: StoreUpdater<S>): Store<S> {
 		if(typeof updater !== 'function') throw new Error('updaters must be functions');
 
-		var newUpdaters = this._updaters.slice(0);
-		newUpdaters.push(updater);
+		const newUpdaters = this._updaters.push(updater);
 
-		return new Store(this._state, newUpdaters, this._finishOnServer);
+		return new Store(this._state, newUpdaters, this._finishOnServer, this._arg);
 	}
 
 	/**
@@ -92,8 +121,7 @@ class Store<S> {
 	 *											calling the updaters
 	 */
 	dispatch(action: Action): Promise<Store<S>> {
-		//TODO, need to be able to get the arg here too
-		return this.startDispatchAt(action, { state: this._state, index: 0}); //, arg);
+		return this.startDispatchAt(action, { state: this._state, index: 0});
 	}
 
 	/**
@@ -105,30 +133,29 @@ class Store<S> {
 	 *							state,			The state to pass to the updater at the given index
 	 *							index			The index of the dispatcher to start with
 	 *						}
-	 * @param arg			{any}				The argument to send to the onServer function
 	 *
 	 * @return				{Promise<Store>}	A Promise with the new Store with the state after
 	 *											calling the updaters
 	 */
-	startDispatchAt(action: Action, startingPoint: StartingPoint<S>, arg?: any): Promise<Store<S>> {
+	startDispatchAt(action: Action, startingPoint: StartingPoint<S>): Promise<Store<S>> {
 		// Check args
 		if(!action || typeof action !== 'object') {
 			return Promise.reject(new Error('actions must be objects'));
 		}
 		if(
-			!startingPoint								||
-			startingPoint.state === undefined			||
-			typeof startingPoint.index !== 'number'		||
-			startingPoint.index < 0						||
-			startingPoint.index >= this._updaters.length
+			!startingPoint									||
+			startingPoint.state === undefined				||
+			typeof startingPoint.index !== 'number'			||
+			startingPoint.index < 0							||
+			startingPoint.index >= this._updaters.count()
 		) {
 			return Promise.reject(new Error('starting point must contain index and state'))
 		}
 
 
 		// Dispatch to each updater
-		var lastOnServerFunc = null;
-		var newStatePromise = this._updaters.reduce(
+		let lastOnServerFunc = null;
+		const newStatePromise = this._updaters.reduce(
 			(currStatePromise, updater, index) => {
 				// Check to see if this updater should be called
 				if(index < startingPoint.index)	return currStatePromise;
@@ -141,8 +168,8 @@ class Store<S> {
 					if(lastOnServerFunc && lastOnServerFunc.isFinishingOnServer()) return state;
 
 					// Call updater
-					var onServerObj = this._makeOnServer(action, { state, index }, arg);
-					var nextStatePromise = updater(state, action, onServerObj.func);
+					const onServerObj = this._makeOnServer(action, { state, index });
+					const nextStatePromise = updater(state, action, onServerObj.func);
 
 					// Get ready for next reducer
 					lastOnServerFunc = onServerObj;
@@ -159,7 +186,7 @@ class Store<S> {
 				throw new Error('a state must be returned from each updater');
 			}
 
-			var newStore = new Store(newState, this._updaters, this._finishOnServer);
+			const newStore = new Store(newState, this._updaters, this._finishOnServer, this._arg);
 			return Promise.resolve(newStore);
 		});
 	}
@@ -173,9 +200,10 @@ class Store<S> {
 		return this._state;
 	}
 
-	_makeOnServer(action: Action, startingPoint: StartingPoint<S>, arg?: any): OnServerObj<S> {
-		var finishingOnServer = false;
-		var finishOnServer = this._finishOnServer;
+	_makeOnServer(action: Action, startingPoint: StartingPoint<S>): OnServerObj<S> {
+		let finishingOnServer = false;
+		const finishOnServer = this._finishOnServer;
+		const arg = this._arg;
 		return {
 			func(onServerFunc) {
 				if(finishOnServer) {

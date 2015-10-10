@@ -1,3 +1,5 @@
+jest.autoMockOff();	//NOTE, needed because jest.dontMock() dosn't work
+
 var Dispatcher = require.requireActual('../src/Dispatcher');
 
 var Store = jest.genMockFromModule('../src/Store');
@@ -5,16 +7,13 @@ var SubscriptionHandler = jest.genMockFromModule('../src/SubscriptionHandler');
 
 // Use manul mock
 Store.createStore = function(initialState) {
-	var state = Object.assign({}, initialState);
-	var store = new Store(state, [], null);
+	var store = new Store(initialState, [], null);
 
-	store.getState = jest.genMockFunction().mockImplementation(() => state);
+	store.getState = jest.genMockFunction().mockReturnValue(initialState);
 	store.dispatch = jest.genMockFunction().mockReturnValue(Promise.resolve(store));
-	store.startDispatchAt = jest.genMockFunction().mockImplementation((_, startingPoint) => {
-		state = startingPoint.state;
-		return Promise.resolve(store);
-	});
-	store.useIsoDispatcher = jest.genMockFunction().mockReturnValue(store);
+	store.startDispatchAt = jest.genMockFunction().mockReturnValue(Promise.resolve(store));
+	store.finishOnServerUsing = jest.genMockFunction().mockReturnValue(store);
+	store.setOnServerArg = jest.genMockFunction().mockReturnValue(store);
 
 	return store;
 };
@@ -27,13 +26,6 @@ SubscriptionHandler.createSubscriptionHandler = function() {
 	subscriptionHandler.publish = jest.genMockFunction();
 
 	return subscriptionHandler;
-};
-
-Dispatcher.createDispatcher = function(stores, updateSubscriptionHandler) {
-	return new Dispatcher(
-		stores,
-		SubscriptionHandler.createSubscriptionHandler(updateSubscriptionHandler)
-	);
 };
 
 function getStores(initialStates) {
@@ -52,7 +44,7 @@ describe('Dispatcher', () => {
 		var dispatcher = Dispatcher.createDispatcher(stores);
 
 		// Test the given stores are added (and no others)
-		expect(dispatcher._stores).toEqual(stores);	//TODO, fix to use public dispatcher api
+		expect(dispatcher._stores.toJS()).toEqual(stores);	//TODO, fix to use public dispatcher api
 
 		//Test trying to use invalid stores
 		var invalidStores = [
@@ -217,7 +209,6 @@ describe('Dispatcher', () => {
 		invalidStoreNames.forEach((invalidStoreName) => {
 			expect(() => {
 				dispatcher.subscribeTo(invalidStoreName, jest.genMockFunction());
-				console.log({ invalidStoreName });
 			}).toThrow();
 		});
 	});
@@ -244,7 +235,7 @@ describe('Dispatcher', () => {
 });
 
 describe('ClientDispatcher', () => {
-	pit.only('calls iso function when onServer is called', () => {
+	pit('calls iso function when onServer is called', () => {
 		var initialStates = {
 			a: { stateFor: 'a' },
 			b: { stateFor: 'b' },
@@ -274,14 +265,14 @@ describe('ClientDispatcher', () => {
 
 			store.dispatch = jest.genMockFunction().mockImplementation((action) => {
 				// Test 'useIsoDispatcher' was called by ClientDispatcher
-				expect(store.useIsoDispatcher.mock.calls.length).toBe(1);
+				expect(store.finishOnServerUsing.mock.calls.length).toBe(1);
 
 				// Test correct action is sent
 				expect(action).toEqual(dispatchedAction);
 
 				// Call function passed to 'useIsoDispatcher'
-				var useIsoDispatcherFunc = store.useIsoDispatcher.mock.calls[0][0];
-				useIsoDispatcherFunc(action, pauseAtStartingPoints[storeToPause]);
+				var useFinishOnServerUsing = store.finishOnServerUsing.mock.calls[0][0];
+				useFinishOnServerUsing(action, pauseAtStartingPoints[storeToPause]);
 
 				return Promise.resolve(store);
 			});
@@ -340,28 +331,37 @@ describe('ServerDispatcher', () => {
 			e: { index: 0, state: { newStateFor: 'e' } }
 		};
 		var passedArg = { passed: 'arg' };
+		var getOnServerArg = () => passedArg;
 		var stores = getStores(initialStates);
-		var dispatcher = Dispatcher.createServerDispatcher(stores);
+		var dispatcher = Dispatcher.createServerDispatcher(getOnServerArg, stores);
 
 		promises.push(
-			dispatcher.startDispatchAt(action, startingPoints, passedArg).then((newStates) => {
+			dispatcher.startDispatchAt(action, startingPoints).then((newStates) => {
 				for(var storeName in stores) {
 					var store = stores[storeName];
-					var startDispatchAtCalls = store.startDispatchAt.mock.calls;
 					var startingPoint = startingPoints[storeName];
 
-					// Test state is correct
+					// Test correct states are returned
 					if(startingPoint) {
-						expect(newStates[storeName]).toEqual(startingPoint.state);
+						//NOTE, not the new state, because this is part of Store (not being tested)
+						expect(newStates[storeName]).toBeDefined();
 					}
 					else {
 						expect(newStates[storeName]).toBeUndefined();
 					}
 
+					// Test correct store.setOnServerArg is called
+					var setOnServerArgCalls = store.setOnServerArg.mock.calls;
+
+					expect(setOnServerArgCalls.length).toBe(1);
+					expect(setOnServerArgCalls[0]).toEqual([passedArg]);
+
+
 					// Test correct the store.startDispatchAt was called
+					var startDispatchAtCalls = store.startDispatchAt.mock.calls;
 					if(startingPoint) {
 						expect(startDispatchAtCalls.length).toBe(1);
-						expect(startDispatchAtCalls[0]).toEqual([action, startingPoint, passedArg]);
+						expect(startDispatchAtCalls[0]).toEqual([action, startingPoint]);
 					}
 					else {
 						expect(startDispatchAtCalls.length).toBe(0);
@@ -380,7 +380,7 @@ describe('ServerDispatcher', () => {
 			{ a: true }
 		];
 		invalidStartingPoints.forEach((invalidStartingPoint) => {
-			dispatcher = Dispatcher.createServerDispatcher(stores);
+			dispatcher = Dispatcher.createServerDispatcher(getOnServerArg, stores);
 			promises.push(
 				dispatcher.startDispatchAt(action, invalidStartingPoint, passedArg)
 					.then(() => {

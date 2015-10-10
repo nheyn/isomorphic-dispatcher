@@ -1,3 +1,5 @@
+jest.autoMockOff();	//NOTE, needed because jest.dontMock() dosn't work
+
 var Store = require.requireActual('../src/Store');
 
 function getUpdaters() {
@@ -91,7 +93,7 @@ describe('Store', () => {
 		var emptyStore = Store.createStore({});
 		var updaters = getUpdaters();
 
-		var store = updaters.reduce((currStore, updater, index) => {
+		var store = updaters.reduce((currStore, updater) => {
 			return currStore.register((state, action, onServer) => {
 				// Test the passed arg is correct
 				var onServerReturnVal = { onServerReturnVal: true };
@@ -101,15 +103,20 @@ describe('Store', () => {
 				});
 
 				// Test onServer function return value is in the returned promise
-				onServerPromise.then((val) => {
-					expect(val).toBe(onServerReturnVal);
-				});
+				onServerPromise
+					.then((val) => {
+						expect(val).toBe(onServerReturnVal);
+					})
+					.catch((err) => {
+						expect('NOT').toBe('called');
+						console.log('result for onServ is an Error,', err)
+					});
 
 				return updater(state, action);
 			});
-		}, emptyStore);
+		}, emptyStore.setOnServerArg(passedArg));
 
-		return store.startDispatchAt(passedAction, startingPoint, passedArg).then(() => {
+		return store.startDispatchAt(passedAction, startingPoint).then(() => {
 			updaters.forEach((updater, index) => {
 				if(index < startingPoint.index) {
 					// Test first updaters weren't called
@@ -150,7 +157,7 @@ describe('Store', () => {
 
 				return updater(state, action);
 			});
-		}, emptyStore.useIsoDispatcher(isoFunc));
+		}, emptyStore.finishOnServerUsing(isoFunc));
 
 
 		return store.dispatch(dispatchedAction).then((updatedStore) => {
@@ -244,7 +251,7 @@ describe('Store', () => {
 			);
 
 			promises.push(
-				store.startDispatchAt(invalidAction, { index: updaters.length - 1, state: {} }, {})
+				store.startDispatchAt(invalidAction, { index: updaters.length - 1, state: {} })
 					.then(() => {
 						throw new Error('store.dispatch return state, instead of an error');
 					})
@@ -270,7 +277,7 @@ describe('Store', () => {
 		];
 		invalidStartingPoints.forEach((invalidStartingPoint) => {
 			promises.push(
-				store.startDispatchAt({}, invalidStartingPoint, {})
+				store.startDispatchAt({}, invalidStartingPoint)
 					.then(() => {
 						throw new Error('store.dispatch return state, instead of an error');
 					})
