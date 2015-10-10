@@ -11,7 +11,8 @@
  */
 function isValidStore(possibleStore: any): boolean {
 	const publicStoreMethods = [
-		'useIsoDispatcher',
+		'finishOnServerUsing',
+		'setOnServerArg',
 		'register',
 		'dispatch',
 		'startDispatchAt',

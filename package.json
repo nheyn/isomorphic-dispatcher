@@ -1,6 +1,6 @@
 {
 	"name": "isomorphic-dispatcher",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "A redux style dispatcher for use in isomorphic apps.",
 	"author": "Nick Heyn <nick@heyn.io>",
 	"main": "<rootDir>/lib/index.js",

@@ -14,6 +14,7 @@ type DispatcherIsoFunc = (
 	pausePoints: {[key: string]: StartingPoint<any>}
 ) => Promise<{[key: string]: any}>;
 
+const PromisePlaceholder = require('./utils/PromisePlaceholder');
 const makeSubscribeToGroupFunc = require('./utils/makeSubscribeToGroupFunc');
 const isValidStore = require('./utils/isValidStore');
 const mapObject = require('./utils/mapObject');
@@ -99,6 +100,11 @@ class Dispatcher {
 	/**
 	 * Create a Server Dispatch from the given Stores.
 	 *
+	 * @param getOnServerArg		{() => any | Promise}	The function that is called each time
+	 *														the updaters are called, it should
+	 *														return the argument to pass the onServer
+	 *														callback in the updaters (can be in a
+	 *														Promise)
 	 * @param stores				{StoresObject}			The stores that the action are
 	 *														dispatched to
 	 * @param subscriptionHandler	{?SubscriptionHandler}	The subscription handler that
@@ -108,10 +114,11 @@ class Dispatcher {
 	 * @return						{Dispatcher}			The new Server Dispatcher
 	 */
 	static createServerDispatcher(
+		getOnServerArg: () => any | Promise<any>,
 		stores: StoresObject,
 		subscriptionHandler: ?SubscriptionHandler
 	): ServerDispatcher {
-		return new ServerDispatcher(stores, subscriptionHandler);
+		return new ServerDispatcher(getOnServerArg, stores, subscriptionHandler);
 	}
 
 	 /**
@@ -403,62 +410,6 @@ class ClientDispatcher extends Dispatcher {
 	}
 }
 
-// Move to own file
-/**
- * A helper class for the ES6 Promise class. It allows resolve / reject functions to be called
- * outside the Promise constructor argument.
- */
-class PromisePlaceholder<V> {
-	_promise: Promise<V>;
-	_resolve: (val: V) => void;
-	_reject: (err: Error) => void;
-
-	/**
-	 * Create a new PromisePlaceholder.
-	 */
-	constructor() {
-		this._promise = new Promise((resolve, reject) => {
-			this._resolve = resolve;
-			this._reject = reject;
-		});
-	}
-
-	/**
-	 * Get the Promise this is a placeholder for.
-	 *
-	 * @return	{Promise}	The promise
-	 */
-	getPromise(): Promise<V> {
-		return this._promise;
-	}
-
-	/**
-	 * Resolve the Promise this is a placeholder for.
-	 *
-	 * @param val	{any}		The value to resolve
-	 *
-	 * @return		{Promise}	The promise that was resolved
-	 */
-	resolve(val: V): Promise<V> {
-		this._resolve(val);
-
-		return this.getPromise();
-	}
-
-	/**
-	 * Reject the Promise this is a placeholder for.
-	 *
-	 * @param err	{Error}		The error to use to reject the promise
-	 *
-	 * @return		{Promise}	The promise that was rejected
-	 */
-	reject(err: Error): Promise<V> {
-		this._reject(err);
-
-		return this.getPromise();
-	}
-}
-
 /*------------------------------------------------------------------------------------------------*/
 //	---  ServerDispatcher ---
 /*------------------------------------------------------------------------------------------------*/
@@ -466,6 +417,41 @@ class PromisePlaceholder<V> {
  * A sub-class of dispatch for the server.
  */
 class ServerDispatcher extends Dispatcher {
+	_getOnServerArg: () => any | Promise<any>;
+
+	/**
+	 * See super class
+	 *
+	 * @param getOnServerArg	{() => any | Promise}	The function that is called each time
+	 *													the updaters are called, it should return
+	 *													the argument to pass the onServer callback
+	 *													in the updaters (can be in a Promise)
+	 */
+	constructor(
+		getOnServerArg: () => any | Promise<any>,
+		stores: StoresObject,
+		subscriptionHandler: ?SubscriptionHandler
+	) {
+		if(typeof getOnServerArg !== 'function') {
+			throw new Error('getOnServerArg must be a function');
+		}
+
+		super(stores, subscriptionHandler);
+		this._getOnServerArg = getOnServerArg;
+	}
+
+	/**
+	 * See super class
+	 */
+	dispatch(action: Action): Promise<{[key: string]: any}> {
+		// Call dispatch w/ updated stores
+		return this._getStoresWithNewArg().then((updatedStores) => {
+			this._stores = updatedStores;
+
+			return super.dispatch(action);
+		});
+	}
+
 	/**
 	 * Dispatch the given action to starting at each of the given starting points.
 	 *
@@ -481,11 +467,7 @@ class ServerDispatcher extends Dispatcher {
 	 * @return					{Promise<{string: any}>}	The states after the dispatch is
 	 *														finished
 	 */
-	startDispatchAt(
-		action: Action,
-		startingPoints: StartingPointObject,
-		arg: ?any
-	): Promise<StatesObject> {
+	startDispatchAt(action: Action, startingPoints: StartingPointObject): Promise<StatesObject> {
 		if(this._isDispatching) {
 			return Promise.reject(new Error('cannot dispatch until dispatch is finished'));
 		}
@@ -507,29 +489,38 @@ class ServerDispatcher extends Dispatcher {
 		// Start dispatch
 		this._isDispatching = true;
 
-		// Perform dispatch for given stores
-		const resultPromises = mapObject(startingPoints, (startingPoint, storeName) => {
-			const store = this._stores[storeName];
-			if(!store)	throw new Error('invalid store returned from the server');
+		// Get stores with current arg
+		const updatedStoresPromise = this._getStoresWithNewArg();
 
-			return store.startDispatchAt(action, startingPoint, arg).then((updatedStore) => {
-				// Save store for current dispatch
-				this._stores[storeName] = updatedStore;
+		// Call startDispatchAt in given stores
+		const dispatchedStoresPromise = updatedStoresPromise.then((updatedStores) => {
+			// Peform dispatch
+			return objectPromise(mapObject(startingPoints, (startingPoint, storeName) => {
+				const updatedStore = updatedStores[storeName];
+				const dispatchedStorePromise = updatedStore.startDispatchAt(action, startingPoint);
 
-				return updatedStore.getState();
-			});
+				return dispatchedStorePromise.then((dispatchedStore) => {
+					// Save results
+					this._stores[storeName] = dispatchedStore;
+
+					return dispatchedStore;
+				});
+			}));
 		});
 
-		return objectPromise(resultPromises).then((newStates) => {
-			// Finish dispatch
-			this._isDispatching = false;
+		// Get states for updated stores
+		return dispatchedStoresPromise.then((dispatchedStores) => {
+			return mapObject(dispatchedStores, (dispatchedStore) => dispatchedStore.getState());
+		});
+	}
 
-			// Send state to subscribers
-			if(this._subscriptionHandler) {
-				this._subscriptionHandler.publish(newStates);
-			}
+	_getStoresWithNewArg(): Promise<StoresObject> {
+		// Get arg
+		const currentArg = this._getOnServerArg();
 
-			return newStates;
+		// Get updated stores
+		return Promise.resolve(currentArg).then((onServerArg) => {
+			return mapObject(this._stores, (store, storeName) => store.setOnServerArg(onServerArg));
 		});
 	}
 }

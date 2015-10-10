@@ -44,12 +44,17 @@ function createClientDispatcher(stores, finishOnServer) {
 /**
  * Create a Server Dispatch from the given Stores.
  *
- * @param stores				{StoresObject}	The stores that the action are dispatched to
+ * @param stores			{StoresObject}			The stores that the action are dispatched to
+ * @param getOnServerArg	{() => any | Promise}	The function that is called each time
+ *													the updaters are called, it should return
+ *													the argument to pass the onServer callback
+ *													in the updaters (can be in a Promise)
  *
  * @return						{Dispatcher}	The new Server Dispatcher
  */
-function createServerDispatcher(stores) {
+function createServerDispatcher(stores, getOnServerArg) {
 	return Dispatcher.createServerDispatcher(
+		getOnServerArg,
 		stores,
 		SubscriptionHandler.createSubscriptionHandler()
 	);
