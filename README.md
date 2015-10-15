@@ -73,6 +73,23 @@ dispatcher.dispatch(action).then((updatedStates) => {
 });
 ```
 
+To get the state for all the Stores use the 'getStateForAll' method.
+It will throw an Error if the called while a 'dispatch' is happening.
+```
+var states = dispatcher.getStateForAll();
+for(var storeName in states) {
+	var state = states[storeName];
+
+	// Perform updates for new state
+}
+```
+
+To get the state of a single Store use the 'getStateFor' method.
+It will throw an Error if the called while a 'dispatch' is happening.
+```
+var state = dispatcher.getStateFor('storeName');
+```
+
 Use the 'subscribeToAll' method to add a subscriber to the changes the Stores.
 The subscriber will be passed an object that contains the updated states in the Stores.
 It returns a function will unsubscribe the subscriber.
@@ -133,7 +150,9 @@ var serverDispatcher = IsomorphicDispatcher.createServerDispatcher(stores, () =>
 });
 ```
 
-To connection with the ClientDispatcher, call the 'startDispatchAt' method when the second argument of 'createClientDispatcher' function is called. It should be passed the actions and starting points from the 'createClientDispatcher' callback. The states returned from 'startDispatchAt' (on the server) should be returned as a Promise in the 'createClientDispatcher' callback (on the client).
+To connection with the ClientDispatcher, call the 'startDispatchAt' method when the second argument of 'createClientDispatcher' function is called.
+It should be passed the actions and starting points from the 'createClientDispatcher' callback.
+The states returned from 'startDispatchAt' (on the server) should be returned as a Promise in the 'createClientDispatcher' callback (on the client).
 ```
 // Call after 'handleDispatchOnServer' is called on the server
 function handleDispatchFromClient(action, startingPoints) {
@@ -146,7 +165,7 @@ Test are writen using [jest](https://facebook.github.io/jest/).
 
 To perform tests, build/run a Docker image/container using:
 ```
-docker build -t dispatcher-test .
+docker build -t dispatcher-test <path to repo>
 docker run -it --rm dispatcher-test
 ```
 
