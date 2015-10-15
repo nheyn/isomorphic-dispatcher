@@ -3,7 +3,11 @@
 	"version": "0.1.0",
 	"description": "A redux style dispatcher for use in isomorphic apps.",
 	"author": "Nick Heyn <nick@heyn.io>",
-	"main": "<rootDir>/lib/index.js",
+	"main": "./lib/index.js",
+	"repository" : {
+		"type" : "git",
+		"url" : "https://github.com/nheyn/isomorphic-dispatcher"
+	},
 	"dependencies": {
 		"immutable": "*"
 	},
