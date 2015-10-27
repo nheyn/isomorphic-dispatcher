@@ -3,11 +3,12 @@
  */
 const Immutable = require('immutable');
 
-type OnServerFunc<S> = (arg: any) => MaybePromise<S>;
 type OnServerObj<S> = {
-	func: OnServerFunc<S>,
-	isFinishingOnServer: () => bool
+	isFinishingOnServer: bool,
+	getServerState: () => Promise<S>
 };
+type OnServerReturnValue<S> = S | Promise<S> | OnServerObj<S>;	//ERROR, type error?????
+type OnServerFunc<S> = (arg: any) => OnServerReturnValue<S>;
 type StoreIsoFunc<S> = (action: Action, startingPoint: StartingPoint<S>) => Promise<S>;
 type StoreUpdater<S> = (
 	state: S,
@@ -138,6 +139,9 @@ class Store<S> {
 	 *											calling the updaters
 	 */
 	startDispatchAt(action: Action, startingPoint: StartingPoint<S>): Promise<Store<S>> {
+		// Do nothing if there are no updaters to perform
+		if(this._updaters.count() === 0)	return Promise.resolve(this);
+
 		// Check args
 		if(!action || typeof action !== 'object') {
 			return Promise.reject(new Error('actions must be objects'));
@@ -149,45 +153,45 @@ class Store<S> {
 			startingPoint.index < 0							||
 			startingPoint.index >= this._updaters.count()
 		) {
-			return Promise.reject(new Error('starting point must contain index and state'))
+			return Promise.reject(new Error('starting point must contain valid index and state'));
 		}
 
-
 		// Dispatch to each updater
-		let lastOnServerFunc = null;
-		const newStatePromise = this._updaters.reduce(
+		const updatedStatePromise = this._updaters.reduce(
 			(currStatePromise, updater, index) => {
-				// Check to see if this updater should be called
+				// Check if this updater should be skipped
 				if(index < startingPoint.index)	return currStatePromise;
 
 				return currStatePromise.then((state) => {
-					// Check for no state returned
-					if(state === undefined) return state;
+					// Check if finishing on server
+					if(state.isFinishingOnServer) return state;
 
-					// Check if last updater called onServer function
-					if(lastOnServerFunc && lastOnServerFunc.isFinishingOnServer()) return state;
+					// Check for valid state (pass through to be checked below)
+					if(!this._isValidState(state)) return state;
 
 					// Call updater
-					const onServerObj = this._makeOnServer(action, { state, index });
-					const nextStatePromise = updater(state, action, onServerObj.func);
-
-					// Get ready for next reducer
-					lastOnServerFunc = onServerObj;
-					return nextStatePromise;
+					const onServer = this._makeOnServer(action, { state, index });
+					return updater(state, action, onServer);
 				});
 			},
-			Promise.resolve(startingPoint.state)
+			Promise.resolve(startingPoint.state)	//ERROR, flow error here (????)
 		);
+
+		const newStatePromise = updatedStatePromise.then((updatedState) => {
+			if(!updatedState.isFinishingOnServer) return updatedState;
+
+			// Get state from server
+			return updatedState.getServerState();
+		});
 
 		// Create new store from the new state
 		return newStatePromise.then((newState) => {
 			// Check for valid state
-			if(newState === undefined) {
+			if(!this._isValidState(newState)) {
 				throw new Error('a state must be returned from each updater');
 			}
 
-			const newStore = new Store(newState, this._updaters, this._finishOnServer, this._arg);
-			return Promise.resolve(newStore);
+			return new Store(newState, this._updaters, this._finishOnServer, this._arg);
 		});
 	}
 
@@ -200,24 +204,25 @@ class Store<S> {
 		return this._state;
 	}
 
-	_makeOnServer(action: Action, startingPoint: StartingPoint<S>): OnServerObj<S> {
-		let finishingOnServer = false;
-		const finishOnServer = this._finishOnServer;
-		const arg = this._arg;
-		return {
-			func(onServerFunc) {
-				if(finishOnServer) {
-					finishingOnServer = true;
-					return finishOnServer(action, startingPoint)
-				}
-
-				return Promise.resolve(onServerFunc(arg));
-			},
-			isFinishingOnServer() {
-				return finishingOnServer;
+	_makeOnServer(action: Action, startingPoint: StartingPoint<S>): OnServerFunc<S> {
+		return (onServerFunc) => {
+//ERROR, this is not working correctly, not waiting for _finishOnServer's result
+			if(this._finishOnServer) {
+				const resultFromServer = this._finishOnServer(action, startingPoint);
+				return {
+					isFinishingOnServer: true,
+					getServerState() {
+						return resultFromServer;
+					}
+				};
 			}
-		};
 
+			return Promise.resolve(onServerFunc(this._arg));
+		};
+	}
+
+	_isValidState(testState: S): boolean {
+		return typeof testState !== 'undefined';
 	}
 }
 
