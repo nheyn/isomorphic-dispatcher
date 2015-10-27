@@ -39,16 +39,14 @@ store = store.register((state, action) => {
 });
 ```
 
-The updater is also sent a third argument, which is a function. It can be called with a function that will always run  on the server. The 'onServer' callback can return a Promise or normal value, but the return value of 'onServer' will always be a promise. Currently, the 'onServer' function can not be called asynchronously, meaning it must be called before the updater function returns.
+The updater is also sent a third argument, which is a function. It can be called with a function that will always run  on the server. The return value of the 'onServer' function must be returned from the updater. The return value of the callback passed to the 'onServer' function, which can be a Promise or normal value, will be the new state after the updater finished running.
 ```
 store = store.register((state, action, onServer) => {
-	var promiseFromServer = onServer((serverArg) => {
+	return onServer((serverArg) => {
 		// Code that should only run on ther server
 
 		return state;
 	});
-
-	return promiseFromServer;
 });
 ```
 *NOTE: The Store class is immutable, so use the Store returned from the '.register' method*

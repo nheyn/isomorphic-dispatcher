@@ -333,37 +333,35 @@ class ClientDispatcher extends Dispatcher {
 	 * See super class
 	 */
 	dispatch(action: Action): Promise<{[key: string]: any}> {
-		const promisePlaceholders = this._startDispatch();
+		this._startDispatch(action);
 
-		// Call dispatch
-		const newStatesPromise = super.dispatch(action);
-
-		// Call finishOnServer
-		//NOTE, because directly after 'super.dispatch' onServer must be called
-		//		on the 'sequential' part of the updater functions (given to the Stores)
-		this._performFinishOnServer(action, promisePlaceholders);
-
-		return newStatesPromise.then((newStates) => {
+		return super.dispatch(action).then((newStates) => {
 			this._finishDispatch();
+
 			return newStates;
+		}).catch((err) => {
+			this._finishDispatch();
+
+			return Promise.reject(err);
 		});
 	}
 
-	_startDispatch(): Immutable.Map<string, PromisePlaceholder<any>> {
+	_startDispatch(action: Action) {
 		this._pausePoints = {};
 
 		//NOTE, not all (or possible no) placeholders are used
 		let promisePlaceholders = Immutable.Map();
 		this._stores = this._stores.map((store, storeName) => {
-			const currPromisePlaceholder = new PromisePlaceholder()
-			promisePlaceholders.set(storeName, currPromisePlaceholder);
+			const currPromisePlaceholder = new PromisePlaceholder();
+			promisePlaceholders = promisePlaceholders.set(storeName, currPromisePlaceholder);
 
 			return store.finishOnServerUsing(
 				this._createFinishOnServer(storeName, currPromisePlaceholder.getPromise())
 			);
 		});
 
-		return promisePlaceholders;
+		// Start listening for 'onServer' calls
+		this._performFinishOnServer(action, promisePlaceholders);
 	}
 
 	_finishDispatch() {
@@ -372,36 +370,41 @@ class ClientDispatcher extends Dispatcher {
 
 	_performFinishOnServer(
 		action: Action,
-		promisePlaceholders: Immutable.Map<string, PromisePlaceholder<any>>
+		promisePlaceholders: Immutable.Map<string, PromisePlaceholder<any>>,
+		timeout: number = 50
 	) {
-		// Check dispatch is happening
-		if(!this._pausePoints) {
-			throw new Error('finishOnServer should not be called if dispatch has not been called');
-		}
+		setTimeout(() => {
+			// Check dispatch has finished
+			if(!this._pausePoints) return;
 
-		// If no puase points where set, don't call server
-		//ERROR, flowtype error here: this._pausePoints is undefined (not ture, see ^^)
-		if(Object.keys(this._pausePoints).length === 0) return;
-
-		// Call server
-		this._finishOnServer(action, this._pausePoints).then((newStates) => {
-			// Send results to results promises for each store
-			for(let storeName in newStates) {
-				if(!promisePlaceholders.has(storeName)) {
-					throw new Error(`invalid store(${storeName}) returned from server`);
-				}
-				if(!newStates[storeName]) {
-					throw new Error(`missing store(${storeName}) returned from server`);
-				}
-
-				promisePlaceholders.get(storeName).resolve(newStates[storeName]);
+			// If no puase points set
+			if(Object.keys(this._pausePoints).length === 0) {
+				this._performFinishOnServer(action, promisePlaceholders, timeout);
 			}
-		}).catch((err) => {
-			// Send error to promise for each store
-			promisePlaceholders.forEach((promisePlaceholder) => {
-				promisePlaceholder.reject(err);
+
+			// Call server
+			this._finishOnServer(action, this._pausePoints).then((newStates) => {
+				// Send results to results promises for each store
+				for(let storeName in newStates) {
+					if(!promisePlaceholders.has(storeName)) {
+						throw new Error(`invalid store(${storeName}) returned from server`);
+					}
+					if(!newStates[storeName]) {
+						throw new Error(`missing store(${storeName}) returned from server`);
+					}
+
+					promisePlaceholders.get(storeName).resolve(newStates[storeName]);
+				}
+			}).catch((err) => {
+				// Send error to promise for each store
+				promisePlaceholders.forEach((promisePlaceholder) => {
+					promisePlaceholder.reject(err);
+				});
+			}).then(() => {
+				// Listen for any remaning 'onServer' calls
+				this._performFinishOnServer(action, promisePlaceholders, timeout)
 			});
-		});
+		}, timeout);
 	}
 
 	_createFinishOnServer<S>(
@@ -415,16 +418,9 @@ class ClientDispatcher extends Dispatcher {
 		}
 
 		return (action, pausePoint) => {
-			if(!this._stores.has(storeName)) {	//NOTE, repeated for flowtype
-				throw new Error(
-					`cannot create finishOnServer for non-existing store(${storeName})`
-				);
-			}
-			const store = this._stores.get(storeName);
-
 			this._addStoreToFinishOnServer(storeName, pausePoint);
 
-			return store.getState();
+			return statePromise;
 		};
 	}
 

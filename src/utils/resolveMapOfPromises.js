@@ -14,8 +14,8 @@ const Immutable = require('immutable');
 function resolveMapOfPromises<K, V>(
 	promises: Immutable.Map<K, Promise<V>>
 ): Promise<Immutable.Map<K, V>> {
-	const keys = Array.from(promises.keys());
-	const promiseList = Array.from(promises.values());
+	const keys = Array.from(promises.keys());			//ERROR, incorrect type error?????
+	const promiseList = Array.from(promises.values());	//ERROR, incorrect type error?????
 
 	return Promise.all(promiseList).then((vals) => {
 		let results = Immutable.Map();

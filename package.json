@@ -14,7 +14,7 @@
 	"devDependencies": {
 		"babel": "*",
 		"babel-jest": "*",
-		"jest-cli": "*"
+		"jest-cli": "0.5.8"
 	},
 	"scripts": {
 		"test": "jest",

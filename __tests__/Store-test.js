@@ -96,23 +96,10 @@ describe('Store', () => {
 		var store = updaters.reduce((currStore, updater) => {
 			return currStore.register((state, action, onServer) => {
 				// Test the passed arg is correct
-				var onServerReturnVal = { onServerReturnVal: true };
-				var onServerPromise = onServer((arg) => {
+				return onServer((arg) => {
 					expect(arg).toBe(passedArg);
-					return onServerReturnVal;
+					return updater(state, action);
 				});
-
-				// Test onServer function return value is in the returned promise
-				onServerPromise
-					.then((val) => {
-						expect(val).toBe(onServerReturnVal);
-					})
-					.catch((err) => {
-						expect('NOT').toBe('called');
-						console.log('result for onServ is an Error,', err)
-					});
-
-				return updater(state, action);
 			});
 		}, emptyStore.setOnServerArg(passedArg));
 
@@ -135,7 +122,7 @@ describe('Store', () => {
 		});
 	});
 
-	pit('can stop the dispatch call in middle', () => {
+	pit.only('can stop the dispatch call in middle', () => {
 		var stopAt = 2;
 		var dispatchedAction = { dispatchedAction: true };
 		var serverResponse = { fromIsoFunc: true };
@@ -283,7 +270,9 @@ describe('Store', () => {
 					})
 					.catch((err) => {
 						// Test correct error is returned
-						expect(err.message).toBe('starting point must contain index and state');
+						expect(err.message).toBe(
+							'starting point must contain valid index and state'
+						);
 					})
 			);
 		});
