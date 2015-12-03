@@ -31,7 +31,7 @@ var store  = IsomorphicDispatcher.createStore(initialState);
 
 The state of Store can be mutated though updater functions. The function is sent the current state of the store and the action dispatched to the store. It should return the updated state, the return value can be a Promise. Updaters can be added using the 'register' method.
 ```
-store = store.register((state, action) => {
+store = store.register(function(state, action) {
 	// Update state for action
 	//NOTE, do not mutate either argument
 
@@ -41,8 +41,8 @@ store = store.register((state, action) => {
 
 The updater is also sent a third argument, which is a function. It can be called with a function that will always run  on the server. The return value of the 'onServer' function must be returned from the updater. The return value of the callback passed to the 'onServer' function, which can be a Promise or normal value, will be the new state after the updater finished running.
 ```
-store = store.register((state, action, onServer) => {
-	return onServer((serverArg) => {
+store = store.register(function(state, action, onServer) {
+	return onServer(function(serverArg) {
 		// Code that should only run on ther server
 
 		return state;
@@ -62,7 +62,7 @@ var dispatcher = IsomorphicDispatcher.createDispatcher(stores);
 To update the states of the Stores use the 'dispatch' method. The return value is a Promise that contains the updated states for all of the Stores.
 ```
 var action = { type: 'SOME_ACTION' };
-dispatcher.dispatch(action).then((updatedStates) => {
+dispatcher.dispatch(action).then(function(updatedStates) {
 	for(var storeName in updatedStates) {
 		var state = updatedStates[storeName];
 
@@ -93,7 +93,7 @@ The subscriber will be passed an object that contains the updated states in the 
 It returns a function will unsubscribe the subscriber.
 ```
 // Subscribe to all stores
-var unsubscribe = dispatcher.subscribeToAll((updatedStates) => {
+var unsubscribe = dispatcher.subscribeToAll(function(updatedStates) {
 	for(var storeName in updatedStates) {
 		var state = updatedStates[storeName];
 
@@ -110,7 +110,7 @@ The subscriber will be passed the updated state for the given Store.
 It returns a function will unsubscribe the subscriber.
 ```
 // Subscribe to 'storeName'
-var unsubscribe = dispatcher.subscribeTo('storeName', (updatedState) => {
+var unsubscribe = dispatcher.subscribeTo('storeName', function(updatedState) {
 	 // Perform updates for new state
 });
 
@@ -123,7 +123,7 @@ The Dispatcher for the client is created using the 'createClientDispatcher' func
 The first argument is the same array of Stores that passed to the 'createServerDispatcher' function on server.
 Its second argument is a function that should call the 'startDispatchAt' method of the ServerDispatcher.
 ```
-function handleDispatchOnServer = (action, startingPoints) => {
+function handleDispatchOnServer(action, startingPoints) => {
 	return Promise((resolve, reject) => {
 		// Send action and starting points to the server
 
@@ -136,24 +136,24 @@ var serverDispatcher = IsomorphicDispatcher.createClientDispatcher(stores, handl
 
 ##### ServerDispatcher
 The Dispatcher for the client is created using the 'createServerDispatcher' function.
-The first argument is the same array of Stores that passed to the 'createServerDispatcher' function on server.
-Its second argument is a function that will get the arg that should be passed the the onServer callback, in the updaters.
-It will be called each time dispatch, or startDispatchAt, is called.
-The return value from this function can be a Promise.
+It takes the same array of Stores that passed to the 'createDispatcher' function.
 ```
-var serverDispatcher = IsomorphicDispatcher.createServerDispatcher(stores, () => {
-	var arg = {};
+var serverDispatcher = IsomorphicDispatcher.createServerDispatcher(stores);
+```
 
-	return arg;
-});
+To add the argument that will be given to the 'onServer' callback, see Store updaters, use the 'cloneWithOnServerArg' method.
 ```
+var onServerArg = {};
+var serverDispatcherWithArg = serverDispatcher.cloneWithOnServerArg(arg);
+```
+*NOTE: This method creates a new Dispatcher, so use the value returned from 'cloneWithOnServerArg'*
 
 To connection with the ClientDispatcher, call the 'startDispatchAt' method when the second argument of 'createClientDispatcher' function is called.
 It should be passed the actions and starting points from the 'createClientDispatcher' callback.
 The states returned from 'startDispatchAt' (on the server) should be returned as a Promise in the 'createClientDispatcher' callback (on the client).
 ```
 // Call after 'handleDispatchOnServer' is called on the server
-function handleDispatchFromClient(action, startingPoints) {
+function handleDispatchFromClient(function(action, startingPoints) {
 	return serverDispatcher.startDispatchAt(action, startingPoints);
 }
 ```
@@ -181,10 +181,6 @@ Basic usage is given above. More detailed documentation is before class/function
 
 ### Plans
 * Only call subscribers when the state of a Store has mutated
-* Update Store to allow 'onServer' to be called asynchronously
-* Create React.js bindings, that allows
-	* Shortcut (mixin) for add/removing subscriber functions to the dispatcher
-	* Stores to be added within a react class (for parent/child components communication)
 * Create Express middleware and/or Socket.io bindings, that automatically connects the client and the server Dispatchers
 * Create flow type definitions for public API
 * Get documentation from code

@@ -441,39 +441,31 @@ class ClientDispatcher extends Dispatcher {
  * A sub-class of dispatch for the server.
  */
 class ServerDispatcher extends Dispatcher {
-	_getOnServerArg: () => any | Promise<any>;
-
 	/**
 	 * See super class
 	 *
-	 * @param getOnServerArg	{() => any | Promise}	The function that is called each time
-	 *													the updaters are called, it should return
-	 *													the argument to pass the onServer callback
-	 *													in the updaters (can be in a Promise)
+	 * @param onServerArg	{any}	The argument to pass the onServer callback in the updaters
 	 */
 	constructor(
-		getOnServerArg: () => any | Promise<any>,
+		onServerArg: any,
 		stores: StoresMap,
 		subscriptionHandler: ?SubscriptionHandler
 	) {
-		if(typeof getOnServerArg !== 'function') {
-			throw new Error('getOnServerArg must be a function');
-		}
+		// Add arg to stores
+		const updatedStores = stores.map((store) => store.setOnServerArg(onServerArg));
 
-		super(stores, subscriptionHandler);
-		this._getOnServerArg = getOnServerArg;
+		super(updatedStores, subscriptionHandler);
 	}
 
 	/**
-	 * See super class
+	 * Create a new ServerDispatcher with the given arg, but the same stores/subscriptions as this.
+	 *
+	 * @param onServerArg	{any}	The argument to pass the onServer callback in the updaters
+	 *
+	 * @return	{ServerDispatcher}	The new dispatcher
 	 */
-	dispatch(action: Action): Promise<{[key: string]: any}> {
-		// Call dispatch w/ updated stores
-		return this._getStoresWithNewArg().then((updatedStores) => {
-			this._stores = updatedStores;
-
-			return super.dispatch(action);
-		});
+	cloneWithOnServerArg(onServerArg: any): ServerDispatcher {
+		return new ServerDispatcher(onServerArg, this._stores, this._subscriptionHandler);
 	}
 
 	/**
@@ -513,38 +505,22 @@ class ServerDispatcher extends Dispatcher {
 		// Start dispatch
 		this._isDispatching = true;
 
-		// Get stores with current arg
-		const updatedStoresPromise = this._getStoresWithNewArg();
-
-		// Call startDispatchAt in given stores
-		const dispatchedStoresPromise = updatedStoresPromise.then((updatedStores) => {
-			// Peform dispatch
-			return objectPromise(mapObject(startingPoints, (startingPoint, storeName) => {
-				const updatedStore = updatedStores.get(storeName);
-				const dispatchedStorePromise = updatedStore.startDispatchAt(action, startingPoint);
-
-				return dispatchedStorePromise.then((dispatchedStore) => {
-					// Save results
-					this._stores = this._stores.set(storeName, dispatchedStore);
-
-					return dispatchedStore;
-				});
-			}));
+		// Perform dispatch
+		const dispatchedStoresPromises = mapObject(startingPoints, (startingPoint, storeName) => {
+			return this._stores.get(storeName).startDispatchAt(action, startingPoint);
 		});
 
 		// Get states for updated stores
-		return dispatchedStoresPromise.then((dispatchedStores) => {
-			return mapObject(dispatchedStores, (dispatchedStore) => dispatchedStore.getState());
-		});
-	}
+		return objectPromise(dispatchedStoresPromises).then((dispatchedStores) => {
+			return mapObject(dispatchedStores, (dispatchedStore, storeName) => {
+				// Save results
+				this._stores = this._stores.set(storeName, dispatchedStore);
 
-	_getStoresWithNewArg(): Promise<StoresMap> {
-		// Get arg
-		const currentArg = this._getOnServerArg();
+				// Finish dispatch
+				this._isDispatching = false;
 
-		// Get updated stores
-		return Promise.resolve(currentArg).then((onServerArg) => {
-			return this._stores.map((store) => store.setOnServerArg(onServerArg));
+				return dispatchedStore.getState();
+			});
 		});
 	}
 }
