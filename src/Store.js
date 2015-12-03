@@ -206,7 +206,6 @@ class Store<S> {
 
 	_makeOnServer(action: Action, startingPoint: StartingPoint<S>): OnServerFunc<S> {
 		return (onServerFunc) => {
-//ERROR, this is not working correctly, not waiting for _finishOnServer's result
 			if(this._finishOnServer) {
 				const resultFromServer = this._finishOnServer(action, startingPoint);
 				return {
