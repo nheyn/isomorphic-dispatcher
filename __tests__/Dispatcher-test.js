@@ -331,9 +331,8 @@ describe('ServerDispatcher', () => {
 			e: { index: 0, state: { newStateFor: 'e' } }
 		};
 		var passedArg = { passed: 'arg' };
-		var getOnServerArg = () => passedArg;
 		var stores = getStores(initialStates);
-		var dispatcher = Dispatcher.createServerDispatcher(getOnServerArg, stores);
+		var dispatcher = Dispatcher.createServerDispatcher(passedArg, stores);
 
 		promises.push(
 			dispatcher.startDispatchAt(action, startingPoints).then((newStates) => {
@@ -380,7 +379,7 @@ describe('ServerDispatcher', () => {
 			{ a: true }
 		];
 		invalidStartingPoints.forEach((invalidStartingPoint) => {
-			dispatcher = Dispatcher.createServerDispatcher(getOnServerArg, stores);
+			dispatcher = Dispatcher.createServerDispatcher(passedArg, stores);
 			promises.push(
 				dispatcher.startDispatchAt(action, invalidStartingPoint, passedArg)
 					.then(() => {
