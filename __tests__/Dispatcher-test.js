@@ -379,7 +379,8 @@ describe('ServerDispatcher', () => {
 			{ a: true }
 		];
 		invalidStartingPoints.forEach((invalidStartingPoint) => {
-			dispatcher = Dispatcher.createServerDispatcher(passedArg, stores);
+			var stores = getStores(initialStates);
+			var dispatcher = Dispatcher.createServerDispatcher(passedArg, stores);
 			promises.push(
 				dispatcher.startDispatchAt(action, invalidStartingPoint, passedArg)
 					.then(() => {
