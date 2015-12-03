@@ -380,6 +380,7 @@ class ClientDispatcher extends Dispatcher {
 			// If no puase points set
 			if(Object.keys(this._pausePoints).length === 0) {
 				this._performFinishOnServer(action, promisePlaceholders, timeout);
+				return;
 			}
 
 			// Call server
