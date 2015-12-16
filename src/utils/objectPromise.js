@@ -10,7 +10,9 @@
  *
  * @return			Promise<Object>	The Promise that contains the resolved values
  */
-function objectPromise(promises: {[key: string]: Promise<any>}): Promise<{[key: string]: any}> {
+export default function objectPromise(
+	promises: {[key: string]: Promise<any>}
+): Promise<{[key: string]: any}> {
 	const keys = Object.keys(promises);
 	const promiseArray = keys.map((key) => promises[key]);
 
@@ -22,8 +24,3 @@ function objectPromise(promises: {[key: string]: Promise<any>}): Promise<{[key: 
 		return results;
 	});
 }
-
-/*------------------------------------------------------------------------------------------------*/
-//	--- Exports ---
-/*------------------------------------------------------------------------------------------------*/
-module.exports = objectPromise;

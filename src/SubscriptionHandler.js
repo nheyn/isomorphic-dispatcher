@@ -1,7 +1,7 @@
 /**
  * @flow
  */
-const Immutable = require('immutable');
+import Immutable from 'immutable';
 
 /*------------------------------------------------------------------------------------------------*/
 //	--- Subscription Handler ---
@@ -10,7 +10,7 @@ const Immutable = require('immutable');
  * An object that can add and remove functions that recive values when the
  * the publish() method is called.
  */
-class SubscriptionHandler<V> {
+export default class SubscriptionHandler<V> {
 	_subscribers: Immutable.List<SubscriptionFunc<V>>;
 
 	/*
@@ -71,8 +71,3 @@ class SubscriptionHandler<V> {
 		});
 	}
 }
-
-/*------------------------------------------------------------------------------------------------*/
-//	--- Exports ---
-/*------------------------------------------------------------------------------------------------*/
-module.exports = SubscriptionHandler;

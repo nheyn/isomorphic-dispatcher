@@ -10,14 +10,9 @@
  *
  * @return				{({[key: string]: any}) => void}	The subsciber to add to the handler
  */
-function makeSubscribeToGroupFunc<V>(
+export default function makeSubscribeToGroupFunc<V>(
 	groupName: string,
 	subscriber: SubscriptionFunc<V>
 ) : SubscriptionFunc<{[key: string]: V}> {
 	return (groupsObj) => subscriber(groupsObj[groupName]);
 }
-
-/*------------------------------------------------------------------------------------------------*/
-//	--- Exports ---
-/*------------------------------------------------------------------------------------------------*/
-module.exports = makeSubscribeToGroupFunc;

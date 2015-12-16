@@ -1,10 +1,17 @@
 /**
  * @flow
  */
-const Immutable = require('immutable');
+import Immutable from 'immutable';
 
-import type * as Store from './Store';
-import type * as SubscriptionHandler from './SubscriptionHandler';
+import PromisePlaceholder from './utils/PromisePlaceholder';
+import makeSubscribeToGroupFunc from './utils/makeSubscribeToGroupFunc';
+import isValidStore from './utils/isValidStore';
+import mapObject from './utils/mapObject';
+import objectPromise from './utils/objectPromise';
+import resolveMapOfPromises from './utils/resolveMapOfPromises';
+
+import type Store from './Store';
+import type SubscriptionHandler from './SubscriptionHandler';
 
 type StoresObject = {[key: string]: Store<any>};
 type StoresMap = Immutable.Map<string, Store<any>>;
@@ -17,13 +24,6 @@ type DispatcherIsoFunc = (
 	pausePoints: {[key: string]: StartingPoint<any>}
 ) => Promise<{[key: string]: any}>;
 
-const PromisePlaceholder = require('./utils/PromisePlaceholder');
-const makeSubscribeToGroupFunc = require('./utils/makeSubscribeToGroupFunc');
-const isValidStore = require('./utils/isValidStore');
-const mapObject = require('./utils/mapObject');
-const objectPromise = require('./utils/objectPromise');
-const resolveMapOfPromises = require('./utils/resolveMapOfPromises');
-
 
 /*------------------------------------------------------------------------------------------------*/
 //	--- Dispatcher ---
@@ -31,7 +31,7 @@ const resolveMapOfPromises = require('./utils/resolveMapOfPromises');
 /**
  * A class that contains a group of stores that should all recive the same actions.
  */
-class Dispatcher {
+export class Dispatcher {
 
 	_stores: StoresMap;
 	_subscriptionHandler: ?SubscriptionHandler;
@@ -56,84 +56,6 @@ class Dispatcher {
 		this._stores = stores;
 		this._subscriptionHandler = subscriptionHandler;
 		this._isDispatching = false;
-	}
-
-	/**
-	 * Create a Dispatch from the given Stores.
-	 *
-	 * @param stores				{StoresMap}				The stores that the action are
-	 *														dispatched to
-	 * @param subscriptionHandler	{?SubscriptionHandler}	The subscription handler that
-	 *														keeps track of the of the function
-	 *														that have subscribed
-	 *
-	 * @return						{Dispatcher}			The new Dispatcher
-	 */
-	static createDispatcher(
-		stores: StoresObject,
-		subscriptionHandler: ?SubscriptionHandler
-	): Dispatcher {
-		// Check stores is basic js object
-		if(!stores || typeof stores !== 'object') {
-			throw new Error('store must be passed as an object');
-		}
-
-		return new Dispatcher(Immutable.Map(stores), subscriptionHandler);
-	}
-
-	/**
-	 * Create a Client Dispatch from the given Stores.
-	 *
-	 * @param finishOnServer		{DispatcherIsoFunc}		The function to call when finishing a
-	 *														dispatch call on the server
-	 * @param stores				{StoresObject}			The stores that the action are
-	 *														dispatched to
-	 * @param subscriptionHandler	{?SubscriptionHandler}	The subscription handler that
-	 *														keeps track of the of the function
-	 *														that have subscribed
-	 *
-	 * @return						{Dispatcher}		The new Client Dispatcher
-	 */
-	static createClientDispatcher(
-		finishOnServer: DispatcherIsoFunc,
-		stores: StoresObject,
-		subscriptionHandler: ?SubscriptionHandler
-	): Dispatcher {
-		// Check stores is basic js object
-		if(!stores || typeof stores !== 'object') {
-			throw new Error('store must be passed as an object');
-		}
-
-		return new ClientDispatcher(finishOnServer, Immutable.Map(stores), subscriptionHandler);
-	}
-
-	/**
-	 * Create a Server Dispatch from the given Stores.
-	 *
-	 * @param getOnServerArg		{() => any | Promise}	The function that is called each time
-	 *														the updaters are called, it should
-	 *														return the argument to pass the onServer
-	 *														callback in the updaters (can be in a
-	 *														Promise)
-	 * @param stores				{StoresObject}			The stores that the action are
-	 *														dispatched to
-	 * @param subscriptionHandler	{?SubscriptionHandler}	The subscription handler that
-	 *														keeps track of the of the function
-	 *														that have subscribed
-	 *
-	 * @return						{Dispatcher}			The new Server Dispatcher
-	 */
-	static createServerDispatcher(
-		getOnServerArg: () => any | Promise<any>,
-		stores: StoresObject,
-		subscriptionHandler: ?SubscriptionHandler
-	): ServerDispatcher {
-		// Check stores is basic js object
-		if(!stores || typeof stores !== 'object') {
-			throw new Error('store must be passed as an object');
-		}
-
-		return new ServerDispatcher(getOnServerArg, Immutable.Map(stores), subscriptionHandler);
 	}
 
 	 /**
@@ -222,7 +144,7 @@ class Dispatcher {
 		// Subscribe
 		if(!this._subscriptionHandler) {
 			throw new Error(
-				'cannot subscribe if the dispatcher was not created with a subscribtion handler'
+				'cannot subscribe if the dispatcher was not created with a subscription handler'
 			);
 		}
 		this._subscriptionHandler = this._subscriptionHandler.subscribe(subscriber);
@@ -231,8 +153,8 @@ class Dispatcher {
 		return () => {
 			if(!this._subscriptionHandler) {
 				throw new Error(
-					'cannot unsubscribe if the dispatcher was not created' +
-					'with a subscribtion handler'
+					'cannot unsubscripted if the dispatcher was not created' +
+					'with a subscription handler'
 				);
 			}
 
@@ -525,7 +447,80 @@ class ServerDispatcher extends Dispatcher {
 	}
 }
 
-/*------------------------------------------------------------------------------------------------*/
-//	--- Exports ---
-/*------------------------------------------------------------------------------------------------*/
-module.exports = Dispatcher;
+/**
+ * Create a Dispatch from the given Stores.
+ *
+ * @param stores				{StoresMap}				The stores that the action are
+ *														dispatched to
+ * @param subscriptionHandler	{?SubscriptionHandler}	The subscription handler that
+ *														keeps track of the of the function
+ *														that have subscribed
+ *
+ * @return						{Dispatcher}			The new Dispatcher
+ */
+export function createDispatcher(
+	stores: StoresObject,
+	subscriptionHandler: ?SubscriptionHandler
+): Dispatcher {
+	// Check stores is basic js object
+	if(!stores || typeof stores !== 'object') {
+		throw new Error('store must be passed as an object');
+	}
+
+	return new Dispatcher(Immutable.Map(stores), subscriptionHandler);
+}
+
+/**
+ * Create a Client Dispatch from the given Stores.
+ *
+ * @param finishOnServer		{DispatcherIsoFunc}		The function to call when finishing a
+ *														dispatch call on the server
+ * @param stores				{StoresObject}			The stores that the action are
+ *														dispatched to
+ * @param subscriptionHandler	{?SubscriptionHandler}	The subscription handler that
+ *														keeps track of the of the function
+ *														that have subscribed
+ *
+ * @return						{Dispatcher}		The new Client Dispatcher
+ */
+export function createClientDispatcher(
+	finishOnServer: DispatcherIsoFunc,
+	stores: StoresObject,
+	subscriptionHandler: ?SubscriptionHandler
+): Dispatcher {
+	// Check stores is basic js object
+	if(!stores || typeof stores !== 'object') {
+		throw new Error('store must be passed as an object');
+	}
+
+	return new ClientDispatcher(finishOnServer, Immutable.Map(stores), subscriptionHandler);
+}
+
+/**
+ * Create a Server Dispatch from the given Stores.
+ *
+ * @param getOnServerArg		{() => any | Promise}	The function that is called each time
+ *														the updaters are called, it should
+ *														return the argument to pass the onServer
+ *														callback in the updaters (can be in a
+ *														Promise)
+ * @param stores				{StoresObject}			The stores that the action are
+ *														dispatched to
+ * @param subscriptionHandler	{?SubscriptionHandler}	The subscription handler that
+ *														keeps track of the of the function
+ *														that have subscribed
+ *
+ * @return						{Dispatcher}			The new Server Dispatcher
+ */
+export function createServerDispatcher(
+	getOnServerArg: () => any | Promise<any>,
+	stores: StoresObject,
+	subscriptionHandler: ?SubscriptionHandler
+): ServerDispatcher {
+	// Check stores is basic js object
+	if(!stores || typeof stores !== 'object') {
+		throw new Error('store must be passed as an object');
+	}
+
+	return new ServerDispatcher(getOnServerArg, Immutable.Map(stores), subscriptionHandler);
+}

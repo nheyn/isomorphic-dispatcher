@@ -1,7 +1,7 @@
 /**
  * @flow
  */
-const Immutable = require('immutable');
+import Immutable from 'immutable';
 
 /**
 * Takes an Immtable Map that contains Promises and turns it into a Promise that contains an
@@ -11,7 +11,7 @@ const Immutable = require('immutable');
 *
 * @return			Promise<Map<K, V>>The Promise that contains the resolved values
 */
-function resolveMapOfPromises<K, V>(
+export default function resolveMapOfPromises<K, V>(
 	promises: Immutable.Map<K, Promise<V>>
 ): Promise<Immutable.Map<K, V>> {
 	const keys = Array.from(promises.keys());			//ERROR, incorrect type error?????
@@ -25,8 +25,3 @@ function resolveMapOfPromises<K, V>(
 		return results;
 	});
 }
-
-/*------------------------------------------------------------------------------------------------*/
-//	--- Exports ---
-/*------------------------------------------------------------------------------------------------*/
-module.exports = resolveMapOfPromises;

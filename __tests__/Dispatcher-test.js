@@ -5,7 +5,7 @@ var Dispatcher = require.requireActual('../src/Dispatcher');
 var Store = jest.genMockFromModule('../src/Store');
 var SubscriptionHandler = jest.genMockFromModule('../src/SubscriptionHandler');
 
-// Use manul mock
+// Use manual mock
 Store.createStore = function(initialState) {
 	var store = new Store(initialState, [], null);
 
