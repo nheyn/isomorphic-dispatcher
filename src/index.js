@@ -1,6 +1,6 @@
-const Store = require('./Store');
-const Dispatcher = require('./Dispatcher');
-const SubscriptionHandler = require('./SubscriptionHandler');
+import { createStore } from './Store';
+import { createDispatcher, createClientDispatcher, createServerDispatcher } from './Dispatcher';
+import { createSubscriptionHandler } from './SubscriptionHandler';
 
 /**
  * Create a new Store.
@@ -9,8 +9,8 @@ const SubscriptionHandler = require('./SubscriptionHandler');
  *
  * @return				{Store}	The new Store
  */
-function createStore(initialState) {
-	return Store.createStore(initialState);
+export function createStore(initialState) {
+	return createStore(initialState);
 }
 
 /**
@@ -20,8 +20,8 @@ function createStore(initialState) {
  *
  * @return						{Dispatcher}	The new Dispatcher
  */
-function createDispatcher(stores) {
-	return Dispatcher.createDispatcher(stores, SubscriptionHandler.createSubscriptionHandler());
+export function createDispatcher(stores) {
+	return createDispatcher(stores, createSubscriptionHandler());
 }
 
 /**
@@ -33,12 +33,8 @@ function createDispatcher(stores) {
  *
  * @return						{Dispatcher}		The new Client Dispatcher
  */
-function createClientDispatcher(stores, finishOnServer) {
-	return Dispatcher.createClientDispatcher(
-		finishOnServer,
-		stores,
-		SubscriptionHandler.createSubscriptionHandler()
-	);
+export function createClientDispatcher(stores, finishOnServer) {
+	return createClientDispatcher(finishOnServer, stores, createSubscriptionHandler());
 }
 
 /**
@@ -48,18 +44,6 @@ function createClientDispatcher(stores, finishOnServer) {
  *
  * @return						{Dispatcher}	The new Server Dispatcher
  */
-function createServerDispatcher(stores) {
-	return Dispatcher.createServerDispatcher(
-		undefined,
-		stores,
-		SubscriptionHandler.createSubscriptionHandler()
-	);
+export function createServerDispatcher(stores) {
+	return createServerDispatcher(undefined, stores, createSubscriptionHandler());
 }
-
-/*------------------------------------------------------------------------------------------------*/
-//	--- Exports ---
-/*------------------------------------------------------------------------------------------------*/
-module.exports.createStore = createStore;
-module.exports.createDispatcher = createDispatcher;
-module.exports.createClientDispatcher = createClientDispatcher;
-module.exports.createServerDispatcher = createServerDispatcher;

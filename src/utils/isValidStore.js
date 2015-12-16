@@ -9,7 +9,7 @@
  *
  * @return				{bool}	TRUE if the passed object fits the Store API, else FALSE.
  */
-function isValidStore(possibleStore: any): boolean {
+export default function isValidStore(possibleStore: any): boolean {
 	const publicStoreMethods = [
 		'finishOnServerUsing',
 		'setOnServerArg',
@@ -28,8 +28,3 @@ function isValidStore(possibleStore: any): boolean {
 		true
 	);
 }
-
-/*------------------------------------------------------------------------------------------------*/
-//	--- Exports ---
-/*------------------------------------------------------------------------------------------------*/
-module.exports = isValidStore;

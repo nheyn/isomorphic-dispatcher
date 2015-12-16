@@ -6,7 +6,7 @@
 * A helper class for the ES6 Promise class. It allows resolve / reject functions to be called
 * outside the Promise constructor argument.
 */
-class PromisePlaceholder<V> {
+export default class PromisePlaceholder<V> {
 	_promise: Promise<V>;
 	_resolve: (val: V) => void;
 	_reject: (err: Error) => void;
@@ -56,8 +56,3 @@ class PromisePlaceholder<V> {
 		return this.getPromise();
 	}
 }
-
-/*------------------------------------------------------------------------------------------------*/
-//	--- Exports ---
-/*------------------------------------------------------------------------------------------------*/
-module.exports = PromisePlaceholder;

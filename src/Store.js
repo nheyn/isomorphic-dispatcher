@@ -1,7 +1,7 @@
 /**
  * @flow
  */
-const Immutable = require('immutable');
+import Immutable from 'immutable';
 
 type OnServerObj<S> = {
 	isFinishingOnServer: bool,
@@ -22,7 +22,7 @@ type StoreUpdater<S> = (
 /**
  * A store that uses updaters to dispatch changes to its state.
  */
-class Store<S> {
+export default class Store<S> {
 	_state: S;
 	_updaters: Immutable.List<StoreUpdater<S>>;
 	_finishOnServer: ?StoreIsoFunc<S>;
@@ -224,8 +224,3 @@ class Store<S> {
 		return typeof testState !== 'undefined';
 	}
 }
-
-/*------------------------------------------------------------------------------------------------*/
-//	--- Exports ---
-/*------------------------------------------------------------------------------------------------*/
-module.exports = Store;

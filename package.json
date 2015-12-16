@@ -9,7 +9,7 @@
 		"url" : "https://github.com/nheyn/isomorphic-dispatcher"
 	},
 	"dependencies": {
-		"immutable": "*"
+		"immutable": "3.7"
 	},
 	"devDependencies": {
 		"babel": "5",
