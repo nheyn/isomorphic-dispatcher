@@ -1,6 +1,11 @@
-import { createStore } from './Store';
-import { createDispatcher, createClientDispatcher, createServerDispatcher } from './Dispatcher';
+/*
+ * //NOTE, not checking because flow says the modules don't exist (look in this directory to see it is wrong)
+ */
+import { createNewDispatcher, createNewClientDispatcher, createNewServerDispatcher } from './Dispatcher';
 import { createSubscriptionHandler } from './SubscriptionHandler';
+import Store from './Store';
+
+import type Dispatcher from './Dispatcher';
 
 /**
  * Create a new Store.
@@ -9,8 +14,10 @@ import { createSubscriptionHandler } from './SubscriptionHandler';
  *
  * @return				{Store}	The new Store
  */
-export function createStore(initialState) {
-	return createStore(initialState);
+export function createStore<S>(initialState: S): Store<S> {
+	//TODO, check if stores is valid
+
+	return Store.createStore(initialState);
 }
 
 /**
@@ -20,8 +27,10 @@ export function createStore(initialState) {
  *
  * @return						{Dispatcher}	The new Dispatcher
  */
-export function createDispatcher(stores) {
-	return createDispatcher(stores, createSubscriptionHandler());
+export function createDispatcher(stores: any): Dispatcher {
+	//TODO, check if stores is valid
+
+	return createNewDispatcher(stores, createSubscriptionHandler());
 }
 
 /**
@@ -33,8 +42,10 @@ export function createDispatcher(stores) {
  *
  * @return						{Dispatcher}		The new Client Dispatcher
  */
-export function createClientDispatcher(stores, finishOnServer) {
-	return createClientDispatcher(finishOnServer, stores, createSubscriptionHandler());
+export function createClientDispatcher(stores: any, finishOnServer: any): Dispatcher {
+	//TODO, check if stores and finishOnServer are valid
+
+	return createNewClientDispatcher(finishOnServer, stores, createSubscriptionHandler());
 }
 
 /**
@@ -44,6 +55,8 @@ export function createClientDispatcher(stores, finishOnServer) {
  *
  * @return						{Dispatcher}	The new Server Dispatcher
  */
-export function createServerDispatcher(stores) {
-	return createServerDispatcher(undefined, stores, createSubscriptionHandler());
+export function createServerDispatcher(stores: any): Dispatcher {
+	//TODO, check if stores is valid
+
+	return createNewServerDispatcher(undefined, stores, createSubscriptionHandler());
 }

@@ -24,14 +24,13 @@ type DispatcherIsoFunc = (
 	pausePoints: {[key: string]: StartingPoint<any>}
 ) => Promise<{[key: string]: any}>;
 
-
 /*------------------------------------------------------------------------------------------------*/
 //	--- Dispatcher ---
 /*------------------------------------------------------------------------------------------------*/
 /**
  * A class that contains a group of stores that should all recive the same actions.
  */
-export class Dispatcher {
+export default class Dispatcher {
 
 	_stores: StoresMap;
 	_subscriptionHandler: ?SubscriptionHandler;
@@ -458,7 +457,7 @@ class ServerDispatcher extends Dispatcher {
  *
  * @return						{Dispatcher}			The new Dispatcher
  */
-export function createDispatcher(
+export function createNewDispatcher(
 	stores: StoresObject,
 	subscriptionHandler: ?SubscriptionHandler
 ): Dispatcher {
@@ -483,7 +482,7 @@ export function createDispatcher(
  *
  * @return						{Dispatcher}		The new Client Dispatcher
  */
-export function createClientDispatcher(
+export function createNewClientDispatcher(
 	finishOnServer: DispatcherIsoFunc,
 	stores: StoresObject,
 	subscriptionHandler: ?SubscriptionHandler
@@ -512,7 +511,7 @@ export function createClientDispatcher(
  *
  * @return						{Dispatcher}			The new Server Dispatcher
  */
-export function createServerDispatcher(
+export function createNewServerDispatcher(
 	getOnServerArg: () => any | Promise<any>,
 	stores: StoresObject,
 	subscriptionHandler: ?SubscriptionHandler
