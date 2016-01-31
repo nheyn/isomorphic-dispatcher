@@ -63,7 +63,7 @@ export function createClientDispatcher(stores: any, finishOnServer: any): Client
 		}
 	}
 	if(typeof finishOnServer !== 'function') {
-		throw new Error('ClientDispatcher require a function that calls the server').
+		throw new Error('ClientDispatcher require a function that calls the server.');
 	}
 
 	return createNewClientDispatcher(finishOnServer, stores, createSubscriptionHandler());
@@ -78,7 +78,7 @@ export function createClientDispatcher(stores: any, finishOnServer: any): Client
  */
 export function createServerDispatcher(stores: any): ServerDispatcher {
 	if(!stores || stores[Symbol.iterator]) {
-		throw new Error('The stores must be given as elements returned from an iterator');
+		throw new Error('The stores must be given as elements returned from an iterator.');
 	}
 	for(let store of stores) {
 		if(!Store.isStore(store)) {
