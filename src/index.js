@@ -3,7 +3,8 @@
  */
 import Store from './Store';
 import { createSubscriptionHandler } from './SubscriptionHandler';
-import { createNewDispatcher, createNewClientDispatcher, createNewServerDispatcher } from './Dispatcher';
+import * as DispatcherFactory from './Dispatcher';
+import isValidStore from './utils/isValidStore';
 
 import type Dispatcher from './Dispatcher/Dispatcher';
 import type ClientDispatcher from './Dispatcher/ClientDispatcher';
@@ -16,12 +17,8 @@ import type ServerDispatcher from './Dispatcher/ServerDispatcher';
  *
  * @return				{Store}	The new Store
  */
-export function createStore<S>(initialState: S): Store<S> {
-	if(!initialState) {
-		throw new Error('State must have an initial state.');
-	}
-
-	return Store.createStore(initialState);
+export function createStore<S>(initialState?: S): Store<S> {
+	return Store.createStore(initialState? initialState: {});
 }
 
 /**
@@ -32,16 +29,11 @@ export function createStore<S>(initialState: S): Store<S> {
  * @return						{Dispatcher}	The new Dispatcher
  */
 export function createDispatcher(stores: any): Dispatcher {
-	if(!stores || stores[Symbol.iterator]) {
-		throw new Error('The stores must be given as elements returned from an iterator');
-	}
-	for(let store of stores) {
-		if(!Store.isStore(store)) {
-			throw new Error('The createDispatcher(...) function only takes Stores.');
-		}
+	if(!isValidStoreObject(stores)) {
+		throw new Error('An object of stores is required to create a Dispatcher.');
 	}
 
-	return createNewDispatcher(stores, createSubscriptionHandler());
+	return DispatcherFactory.createDispatcher(stores, createSubscriptionHandler());
 }
 
 /**
@@ -54,19 +46,14 @@ export function createDispatcher(stores: any): Dispatcher {
  * @return						{ClientDispatcher}	The new Client Dispatcher
  */
 export function createClientDispatcher(stores: any, finishOnServer: any): ClientDispatcher {
-	if(!stores || stores[Symbol.iterator]) {
-		throw new Error('The stores must be given as elements returned from an iterator');
-	}
-	for(let store of stores) {
-		if(!Store.isStore(store)) {
-			throw new Error('The createClientDispatcher(...) function only takes Stores.');
-		}
+	if(!isValidStoreObject(stores)) {
+		throw new Error('An object of stores is required to create a Dispatcher.');
 	}
 	if(typeof finishOnServer !== 'function') {
 		throw new Error('ClientDispatcher require a function that calls the server.');
 	}
 
-	return createNewClientDispatcher(finishOnServer, stores, createSubscriptionHandler());
+	return DispatcherFactory.createClientDispatcher(finishOnServer, stores, createSubscriptionHandler());
 }
 
 /**
@@ -77,14 +64,19 @@ export function createClientDispatcher(stores: any, finishOnServer: any): Client
  * @return					{ServerDispatcher}	The new Server Dispatcher
  */
 export function createServerDispatcher(stores: any): ServerDispatcher {
-	if(!stores || stores[Symbol.iterator]) {
-		throw new Error('The stores must be given as elements returned from an iterator.');
-	}
-	for(let store of stores) {
-		if(!Store.isStore(store)) {
-			throw new Error('The createClientDispatcher(...) function only takes Stores.');
-		}
+	if(!isValidStoreObject(stores)) {
+		throw new Error('An object of stores is required to create a Dispatcher.');
 	}
 
-	return createNewServerDispatcher(undefined, stores, createSubscriptionHandler());
+	return DispatcherFactory.createServerDispatcher(undefined, stores, createSubscriptionHandler());
+}
+
+function isValidStoreObject(stores: any): boolean {
+	if(typeof stores !== 'object')	return false;
+
+	for(let storeName in stores) {
+		if(!isValidStore(stores[storeName])) return false;
+	}
+
+	return true;
 }

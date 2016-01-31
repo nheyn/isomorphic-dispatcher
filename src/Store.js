@@ -66,18 +66,6 @@ export default class Store<S> {
 		return new Store(initialState, Immutable.List(), undefined, undefined);
 	}
 
-	static isStore(maybeStore: ?Store<S>): boolean {
-		if(typeof maybeStore.finishOnServer !== 'function')		return false;
-		if(typeof maybeStore.setOnServerArg !== 'function')		return false;
-		if(typeof maybeStore.register !== 'function')			return false;
-		if(typeof maybeStore.dispatch !== 'function')			return false;
-		if(typeof maybeStore.dispatch !== 'function')			return false;
-		if(typeof maybeStore.startDispatchAt !== 'function')	return false;
-		if(typeof maybeStore.getState !== 'function')			return false;
-
-		return true;
-	}
-
 	/**
 	 * Set the function to call when finishing a dispatch call on the server.
 	 *
