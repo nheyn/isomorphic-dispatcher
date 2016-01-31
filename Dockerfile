@@ -5,15 +5,20 @@ FROM node:5
 RUN apt-get update
 RUN apt-get install -y libelf1
 
-# Install isomorphic-dispatcher
-WORKDIR /sbin/isomorphic-dispatcher/
+# Create node user
+RUN groupadd node && useradd -m -g node node
+WORKDIR /home/node/isomorphic-dispatcher/
+RUN chown node:node ./
 
-COPY ./src /sbin/isomorphic-dispatcher/src/
-COPY ./flowlib /sbin/isomorphic-dispatcher/flowlib/
-COPY ./__tests__ /sbin/isomorphic-dispatcher/__tests__/
-COPY ./.babelrc /sbin/isomorphic-dispatcher/.babelrc
-COPY ./package.json /sbin/isomorphic-dispatcher/
-RUN npm install
+# Get isomorphic-dispatcher files
+COPY ./src ./src
+COPY ./flowlib ./flowlib
+COPY ./__tests__ ./__tests__
+COPY ./.babelrc ./.babelrc
+COPY ./package.json	./package.json
+RUN chown -R node:node ./*
 
 # Run test
+USER node
+RUN npm install
 CMD npm run check
