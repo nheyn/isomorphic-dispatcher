@@ -1,6 +1,6 @@
 {
 	"name": "isomorphic-dispatcher",
-	"version": "0.2.0",
+	"version": "1.0.0-rc1",
 	"description": "A redux style dispatcher for use in isomorphic apps.",
 	"author": "Nick Heyn <nick@heyn.io>",
 	"main": "./lib/index.js",
@@ -9,16 +9,26 @@
 		"url" : "https://github.com/nheyn/isomorphic-dispatcher"
 	},
 	"dependencies": {
-		"immutable": "3.7"
+		"immutable": "^3.7.6"
 	},
 	"devDependencies": {
-		"babel": "5",
-		"babel-jest": "5",
-		"jest-cli": "0.8"
+		"babel-cli": "^6.3.0",
+		"babel-preset-es2015": "^6.3.0",
+		"babel-preset-stage-0": "^6.3.0",
+		"babel-preset-react": "^6.3.0",
+		"babel-jest": "6",
+		"jest-cli": "^0.8.2",
+		"flow-bin": "^0.20.0"
 	},
 	"scripts": {
+		"flow": "(cd src && ../node_modules/.bin/flow)",
+		"flow:stop": "(cd src && ../node_modules/.bin/flow stop)",
 		"test": "jest",
-		"prepublish": "babel ./src/ -d ./lib/"
+		"check": "npm run flow && npm run test",
+		"build:babel": "babel ./src/ -d ./lib/",
+		"build": "npm run check && npm run build:babel",
+		"prepublish": "npm run build",
+		"clean": "rm -rf ./lib/ && npm flow:stop"
 	},
 	"jest": {
 		"scriptPreprocessor": "<rootDir>/node_modules/babel-jest"
