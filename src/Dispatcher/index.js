@@ -25,10 +25,15 @@ export { ClientDispatcher, ServerDispatcher };
  *
  * @return						{Dispatcher}			The new Dispatcher
  */
-export function createDispatcher(
+export function createNewDispatcher(
 	stores: StoresObject,
 	subscriptionHandler: ?SubscriptionHandler
 ): Dispatcher {
+	// Check stores is basic js object
+	if(!stores || typeof stores !== 'object') {
+		throw new Error('store must be passed as an object');
+	}
+
 	return new Dispatcher(Immutable.Map(stores), subscriptionHandler);
 }
 
@@ -42,11 +47,16 @@ export function createDispatcher(
  *
  * @return						{ClientDispatcher}		The new Client Dispatcher
  */
-export function createClientDispatcher(
+export function createNewClientDispatcher(
 	finishOnServer: DispatcherIsoFunc,
 	stores: StoresObject,
 	subscriptionHandler: ?SubscriptionHandler
 ): ClientDispatcher {
+	// Check stores is basic js object
+	if(!stores || typeof stores !== 'object') {
+		throw new Error('store must be passed as an object');
+	}
+
 	return new ClientDispatcher(finishOnServer, Immutable.Map(stores), subscriptionHandler);
 }
 
@@ -62,10 +72,15 @@ export function createClientDispatcher(
  *
  * @return						{ServerDispatcher}		The new Server Dispatcher
  */
-export function createServerDispatcher(
+export function createNewServerDispatcher(
 	getOnServerArg: () => any | Promise<any>,
 	stores: StoresObject,
 	subscriptionHandler: ?SubscriptionHandler
 ): ServerDispatcher {
+	// Check stores is basic js object
+	if(!stores || typeof stores !== 'object') {
+		throw new Error('store must be passed as an object');
+	}
+
 	return new ServerDispatcher(getOnServerArg, Immutable.Map(stores), subscriptionHandler);
 }
