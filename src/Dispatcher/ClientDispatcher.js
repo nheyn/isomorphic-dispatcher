@@ -4,6 +4,7 @@
 import Immutable from 'immutable';
 
 import { Dispatcher } from './Dispatcher';
+import PromisePlaceholder from '../utils/PromisePlaceholder';
 
 import type Store from '../Store';
 

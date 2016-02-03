@@ -3,7 +3,6 @@
  */
 import Immutable from 'immutable';
 
-import PromisePlaceholder from '../utils/PromisePlaceholder';
 import makeSubscribeToGroupFunc from '../utils/makeSubscribeToGroupFunc';
 import isValidStore from '../utils/isValidStore';
 import mapObject from '../utils/mapObject';
@@ -26,7 +25,7 @@ type UnsubscibeFunc = () => void;
  */
 export class Dispatcher {
 
-	/*_stores: StoresMap;
+	_stores: StoresMap;
 	_subscriptionHandler: ?SubscriptionHandler;
 	_isDispatching: boolean;
 
