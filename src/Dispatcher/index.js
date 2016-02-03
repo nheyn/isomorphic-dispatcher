@@ -1,6 +1,8 @@
 /**
  * //NOTE, not checking because flow says the modules don't exist (look in this directory to see it is wrong)
  */
+import Immutable from 'immutable';
+
 import { Dispatcher } from './Dispatcher';
 import ClientDispatcher from './ClientDispatcher';
 import ServerDispatcher from './ServerDispatcher';

@@ -2,7 +2,7 @@
  * //NOTE, not checking because flow says the modules don't exist (look in this directory to see it is wrong)
  */
 import Store from './Store';
-import { createSubscriptionHandler } from './SubscriptionHandler';
+import SubscriptionHandler from './SubscriptionHandler';
 import { createNewDispatcher, createNewClientDispatcher, createNewServerDispatcher } from './Dispatcher';
 import isValidStore from './utils/isValidStore';
 
@@ -37,7 +37,7 @@ export function createDispatcher(stores: any): Dispatcher {
 		throw new Error('The stores must be given as a plain javascript object');
 	}
 
-	return createNewDispatcher(stores, createSubscriptionHandler());
+	return createNewDispatcher(stores, SubscriptionHandler.createSubscriptionHandler());
 }
 
 /**
@@ -57,7 +57,7 @@ export function createClientDispatcher(stores: any, finishOnServer: any): Client
 		throw new Error('ClientDispatcher require a function that calls the server.');
 	}
 
-	return createNewClientDispatcher(finishOnServer, stores, createSubscriptionHandler());
+	return createNewClientDispatcher(finishOnServer, stores, SubscriptionHandler.createSubscriptionHandler());
 }
 
 /**
@@ -72,7 +72,7 @@ export function createServerDispatcher(stores: any): ServerDispatcher {
 		throw new Error('The stores must be given as a plain javascript object');
 	}
 
-	return createNewServerDispatcher(undefined, stores, createSubscriptionHandler());
+	return createNewServerDispatcher(undefined, stores, SubscriptionHandler.createSubscriptionHandler());
 }
 
 function isVaildStoreObject(stores: any): boolean {
