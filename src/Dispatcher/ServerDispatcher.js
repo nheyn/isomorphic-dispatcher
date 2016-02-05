@@ -2,11 +2,17 @@
  * @flow
  */
 import { Dispatcher } from './Dispatcher';
+import mapObject from '../utils/mapObject';
+import objectPromise from '../utils/objectPromise';
 
 import type Immutable from 'immutable';
 import type Store from '../Store';
+import type SubscriptionHandler from '../SubscriptionHandler';
 
 type StoresMap = Immutable.Map<string, Store<any>>;
+type StatesObject = {[key: string]: any};
+type Subscriber = SubscriptionFunc<StatesObject>;
+type StartingPointObject = {[key: string]: StartingPoint<any>};
 
 /**
  * A sub-class of dispatch for the server.

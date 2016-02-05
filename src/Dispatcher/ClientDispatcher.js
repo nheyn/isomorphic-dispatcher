@@ -7,6 +7,7 @@ import { Dispatcher } from './Dispatcher';
 import PromisePlaceholder from '../utils/PromisePlaceholder';
 
 import type Store from '../Store';
+import type SubscriptionHandler from '../SubscriptionHandler';
 
 type StoresMap = Immutable.Map<string, Store<any>>;
 type DispatcherIsoFunc = (

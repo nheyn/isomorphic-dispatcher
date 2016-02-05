@@ -14,8 +14,11 @@ import Immutable from 'immutable';
 export default function resolveMapOfPromises<K, V>(
 	promises: Immutable.Map<K, Promise<V>>
 ): Promise<Immutable.Map<K, V>> {
-	const keys = Array.from(promises.keys());			//ERROR, incorrect type error?????
-	const promiseList = Array.from(promises.values());	//ERROR, incorrect type error?????
+	// $FlowIssue: flow not using flowlib/immutable.types.js correctly
+	const keys = Array.from(promises.keys());
+
+	// $FlowIssue: flow not using flowlib/immutable.types.js correctly
+	const promiseList = Array.from(promises.values());
 
 	return Promise.all(promiseList).then((vals) => {
 		let results = Immutable.Map();

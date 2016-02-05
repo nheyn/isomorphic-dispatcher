@@ -14,7 +14,6 @@ import type SubscriptionHandler from '../SubscriptionHandler';
 
 type StoresMap = Immutable.Map<string, Store<any>>;
 type StatesObject = {[key: string]: any};
-type StartingPointObject = {[key: string]: StartingPoint<any>};
 type Subscriber = SubscriptionFunc<StatesObject>;
 type UnsubscibeFunc = () => void;
 
