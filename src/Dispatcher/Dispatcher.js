@@ -3,11 +3,11 @@
  */
 import Immutable from 'immutable';
 
+import performDispatch from './performDispatch';
 import makeSubscribeToGroupFunc from '../utils/makeSubscribeToGroupFunc';
 import isValidStore from '../utils/isValidStore';
 import mapObject from '../utils/mapObject';
 import objectPromise from '../utils/objectPromise';
-import resolveMapOfPromises from '../utils/resolveMapOfPromises';
 
 import type Store from '../Store';
 import type SubscriptionHandler from '../SubscriptionHandler';
@@ -63,30 +63,24 @@ export class Dispatcher {
 		if(this._isDispatching) {
 			return Promise.reject(new Error('cannot dispatch until dispatch is finished'));
 		}
-		if(!action || typeof action !== 'object') {
-			return Promise.reject(new Error('actions must be objects'));
-		}
 
 		// Start dispatch
 		this._isDispatching = true;
 
 		// Perform dispatch
-		const dispatchedStoresPromises = this._stores.map((store) => store.dispatch(action));
-
-		return resolveMapOfPromises(dispatchedStoresPromises).then((newStores) => {
+		return performDispatch(this._stores, action).then((newStores) => {
 			// Finish dispatch
 			this._isDispatching = false;
 
 			// Save Stores
 			this._stores = newStores;
 
-			// Send state to subscribers
-			const newStates = newStores.map((store) => store.getState()).toJS();
-			if(this._subscriptionHandler) {
-				this._subscriptionHandler.publish(newStates);
-			}
-
 			// Get states
+			const newStates = newStores.map((store) => store.getState()).toJS();
+
+			// Send state to subscribers
+			if(this._subscriptionHandler)	this._subscriptionHandler.publish(newStates);
+
 			return newStates;
 		});
 	}
