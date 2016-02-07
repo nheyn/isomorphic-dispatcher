@@ -15,7 +15,7 @@ import type SubscriptionHandler from '../SubscriptionHandler';
 type StoresMap = Immutable.Map<string, Store<any>>;
 type StatesObject = {[key: string]: any};
 type Subscriber = SubscriptionFunc<StatesObject>;
-type UnsubscibeFunc = () => void;
+type UnsubscibeFunc = () => StoresMap;
 
 /**
  * A class that contains a group of stores that should all recive the same actions.
@@ -56,22 +56,21 @@ export class Dispatcher {
 		});
 	}
 
-	 /**
+	/**
 	 * Dispatch the given action to all of the stores.
 	 *
 	 * @param action	{Object}					The action to dispatch
 	 *
-	 * @throws										When dispatch has already been called but hasn't
-	 *												finished
+	 * @return			{Promise<{string: any}>}	The states after the dispatch is finished
 	 */
-	dispatch(action: Action) {
-		this._handleAction(action);
+	dispatch(action: Action): Promise<{[key: string]: any}> {
+		return this._handleAction(action).then((storesMap) => {
+			return storesMap.map((store) => store.getState());
+		});
 	}
 
 	/**
 	 * Gets the state from all of the Stores.
-	 *
-	 * @throws								When dispatch is currently running
 	 *
 	 * @return	{{string: any}}				The state of all the stores
 	 */
@@ -84,8 +83,6 @@ export class Dispatcher {
 	 * Gets the state from the given store of the Stores.
 	 *
 	 * @param storeName	{string}	The name of the store to get the state of
-	 *
-	 * @throws						When dispatch is currently running
 	 *
 	 * @return			{any}		The state of the given store
 	 */

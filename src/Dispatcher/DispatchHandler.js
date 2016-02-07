@@ -3,6 +3,7 @@
  */
 import Immutable from 'immutable';
 
+import PromisePlaceholder from '../utils/PromisePlaceholder';
 import resolveMapOfPromises from '../utils/resolveMapOfPromises';
 
 import type Store from '../Store';
@@ -27,7 +28,7 @@ export default class DispatchHandler {
 	_stores: StoresMap;
 	_onUpdatedStore: OnUpdateFunction;
 	_onError: OnErrorFunction;
-	_actionQueue: ?Immutable.List<Action>;
+	_actionQueue: ?Immutable.List<{ action: Action, promisePlaceholder: PromisePlaceholder}>;
 
 	constructor(initalStores: StoresMap, onUpdatedStore: OnUpdateFunction, onError: OnErrorFunction) {
 		this._stores = initalStores;
@@ -36,28 +37,26 @@ export default class DispatchHandler {
 		this._actionQueue = null;
 	}
 
-	pushAction(action: Action) {
-		if(!action || typeof action !== 'object') {
-			throw new Error('actions must be objects');
-		}
-
+	pushAction(action: Action): Promise<StoresMap> {
 		// Enqueue action if dispatch is already being perform
 		if(this._actionQueue) {
-			this._actionQueue = this._actionQueue.push(action);
-			return;
+			const promisePlaceholder = new PromisePlaceholder();
+			this._actionQueue = this._actionQueue.push({ action, promisePlaceholder });
+
+			return promisePlaceholder.getPromise();
 		}
 
 		// Start dispatch
 		this._actionQueue = Immutable.List();
-		this._peformDispatch(this._stores, action);
+		return this._peformDispatch(this._stores, action);
 	}
 
-	_performDispatch(stores: StoresMap, action: Object) {
+	_performDispatch(stores: StoresMap, action: Action): Promise<StoresMap> {
 		// Dispatch the action to each store
-		const updatedStoresPromise = stores.map((store) => store.dispatch(action))
+		const updatedStoresPromises = stores.map((store) => store.dispatch(action))
 
 		// Report Results
-		updatedStoresPromise.then((updatedStores) => {
+		return resolveMapOfPromises(updatedStoresPromises).then((updatedStores) => {
 			this._onUpdatedStore(updatedStores);
 
 			return updatedStores;
@@ -73,14 +72,22 @@ export default class DispatchHandler {
 			}
 			else {
 				// Dequeue next action
-				const nextAction = this._actionQueue.first();
+				const { action: nextAction, promisePlaceholder } = this._actionQueue.first();
 				this._actionQueue = this._actionQueue.shift();
 
 				// Start next dispatch
-				this._performDispatch(currentStores, nextAction);
+				this._performDispatch(currentStores, nextAction).then((nextStores) => {
+					// Resolve promise that was returned from 'pushAction'
+					promisePlaceholder.resolve(nextStores);
+				});
+
 			}
+
+			return currentStores;
 		}).catch((err) => {
 			this._onError(err);	//NOTE, this shouldn't be need (just in case)
+
+			throw err;
 		});
 	}
 }
