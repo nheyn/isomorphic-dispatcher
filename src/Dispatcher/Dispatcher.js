@@ -3,7 +3,7 @@
  */
 import Immutable from 'immutable';
 
-import performDispatch from './performDispatch';
+import { handleActions } from './DispatchHandler';
 import makeSubscribeToGroupFunc from '../utils/makeSubscribeToGroupFunc';
 import isValidStore from '../utils/isValidStore';
 import mapObject from '../utils/mapObject';
@@ -26,7 +26,7 @@ export class Dispatcher {
 
 	_stores: StoresMap;
 	_subscriptionHandler: ?SubscriptionHandler;
-	_isDispatching: boolean;
+	_handleAction: (action: Action) => void;
 
 	/**
 	 * Create a Dispatch from the given Stores.
@@ -38,15 +38,22 @@ export class Dispatcher {
 	 *														that have subscribed
 	 */
 	constructor(stores: StoresMap, subscriptionHandler: ?SubscriptionHandler) {
-		// Check stores are valid
-		stores.forEach((store, storeName) => {
-			if(typeof storeName !== 'string')	throw new Error('store name must be a string');
-			if(!isValidStore(store))			throw new Error('invalid store');
-		});
-
 		this._stores = stores;
 		this._subscriptionHandler = subscriptionHandler;
-		this._isDispatching = false;
+		this._handleAction = handleActions({
+			initalStores: stores,
+			onUpdatedStore(updatedStores) {
+				// Save updated stores
+				this._stores = updatedStores;
+
+				// Send state to subscribers
+				this._subscriptionHandler.publish(this.getStateForAll());
+			},
+			onError(err) {
+				console.error('Error performing dispatch:', err);
+				throw err;
+			}
+		});
 	}
 
 	 /**
@@ -56,33 +63,9 @@ export class Dispatcher {
 	 *
 	 * @throws										When dispatch has already been called but hasn't
 	 *												finished
-	 *
-	 * @return			{Promise<{string: any}>}	The states after the dispatch is finished
 	 */
-	dispatch(action: Action): Promise<{[key: string]: any}> {
-		if(this._isDispatching) {
-			return Promise.reject(new Error('cannot dispatch until dispatch is finished'));
-		}
-
-		// Start dispatch
-		this._isDispatching = true;
-
-		// Perform dispatch
-		return performDispatch(this._stores, action).then((newStores) => {
-			// Finish dispatch
-			this._isDispatching = false;
-
-			// Save Stores
-			this._stores = newStores;
-
-			// Get states
-			const newStates = newStores.map((store) => store.getState()).toJS();
-
-			// Send state to subscribers
-			if(this._subscriptionHandler)	this._subscriptionHandler.publish(newStates);
-
-			return newStates;
-		});
+	dispatch(action: Action) {
+		this._handleAction(action);
 	}
 
 	/**
@@ -93,8 +76,6 @@ export class Dispatcher {
 	 * @return	{{string: any}}				The state of all the stores
 	 */
 	getStateForAll(): {[key: string]: any} {
-		if(this._isDispatching) throw new Error('cannot get state until dispatch is finished');
-
 		const states = this._stores.map((store) => store.getState());
 		return states.toJS();
 	}
@@ -109,7 +90,6 @@ export class Dispatcher {
 	 * @return			{any}		The state of the given store
 	 */
 	getStateFor(storeName: string): any {
-		if(this._isDispatching) throw new Error('cannot get state until dispatch is finished');
 		if(!this._stores.has(storeName)) {
 			throw new Error(`store name(${storeName}) does not exist`);
 		}

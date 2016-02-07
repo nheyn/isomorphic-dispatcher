@@ -13,6 +13,17 @@ type OnErrorFunction = (err: Error) => void;
 
 export default class DispatchHandler {
 
+	static handleActions(settings: {
+		initalStores:	StoresMap,
+		onUpdatedStore:	OnUpdateFunction,
+		onError:		OnErrorFunction
+	}):					(action: Action) => void {
+		const { initalStores, onUpdatedStore, onError } = settings;
+		const dispatchHandler = new DispatchHandler(initalStores, onUpdatedStore, onError);
+
+		return (action) => dispatchHandler.pushAction(action);
+	}
+
 	_stores: StoresMap;
 	_onUpdatedStore: OnUpdateFunction;
 	_onError: OnErrorFunction;
@@ -73,3 +84,5 @@ export default class DispatchHandler {
 		});
 	}
 }
+
+export const handleActions = DispatchHandler.handleActions;
