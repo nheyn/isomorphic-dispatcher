@@ -1,0 +1,11 @@
+[ignore]
+.*/node_modules/.*
+.*/lib/.*
+
+[include]
+
+[libs]
+flowlib/
+
+[options]
+suppress_comment= \\(.\\|\n\\)*\\$FlowIssue

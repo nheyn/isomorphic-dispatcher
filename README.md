@@ -159,7 +159,7 @@ function handleDispatchFromClient(function(action, startingPoints) {
 ```
 
 ### Tests
-Test are writen using [jest](https://facebook.github.io/jest/).
+Test are written using [jest](https://facebook.github.io/jest/). Static type checking is done use [Flowtype](http://flowtype.org).
 
 To perform tests, build/run a Docker image/container using:
 ```
@@ -167,19 +167,13 @@ docker build -t dispatcher-test <path to repo>
 docker run -it --rm dispatcher-test
 ```
 
-Static type checking is done use [Flowtype](http://flowtype.org).
-
-To perform the checks, use the 'flow' cli tool:
-```
-cd <path to repo>/src/
-flow start
-flow
-```
+*NOTE: Currently test are empty. They need to be re-written for the new version*
 
 ### Documentation
 Basic usage is given above. More detailed documentation is before class/function definitions within the code.
 
 ### Plans
+* Re-write tests
 * Only call subscribers when the state of a Store has mutated
 * Create Express middleware and/or Socket.io bindings, that automatically connects the client and the server Dispatchers
 * Create flow type definitions for public API

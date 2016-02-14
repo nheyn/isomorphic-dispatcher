@@ -1,6 +1,14 @@
-import { createStore } from './Store';
-import { createDispatcher, createClientDispatcher, createServerDispatcher } from './Dispatcher';
-import { createSubscriptionHandler } from './SubscriptionHandler';
+/*
+ * //NOTE, not checking because flow says the modules don't exist (look in this directory to see it is wrong)
+ */
+import Store from './Store';
+import SubscriptionHandler from './SubscriptionHandler';
+import { createNewDispatcher, createNewClientDispatcher, createNewServerDispatcher } from './Dispatcher';
+import isValidStore from './utils/isValidStore';
+
+import type Dispatcher from './Dispatcher/Dispatcher';
+import type ClientDispatcher from './Dispatcher/ClientDispatcher';
+import type ServerDispatcher from './Dispatcher/ServerDispatcher';
 
 /**
  * Create a new Store.
@@ -9,8 +17,12 @@ import { createSubscriptionHandler } from './SubscriptionHandler';
  *
  * @return				{Store}	The new Store
  */
-export function createStore(initialState) {
-	return createStore(initialState);
+export function createStore<S>(initialState: S): Store<S> {
+	if(!initialState) {
+		throw new Error('State must have an initial state.');
+	}
+
+	return Store.createStore(initialState);
 }
 
 /**
@@ -20,8 +32,12 @@ export function createStore(initialState) {
  *
  * @return						{Dispatcher}	The new Dispatcher
  */
-export function createDispatcher(stores) {
-	return createDispatcher(stores, createSubscriptionHandler());
+export function createDispatcher(stores: any): Dispatcher {
+	if(!isVaildStoreObject(stores)) {
+		throw new Error('The stores must be given as a plain javascript object');
+	}
+
+	return createNewDispatcher(stores, SubscriptionHandler.createSubscriptionHandler());
 }
 
 /**
@@ -31,19 +47,38 @@ export function createDispatcher(stores) {
  * @param finishOnServer		{DispatcherIsoFunc}	The function to call when finishing a dispatch
  *													call on the server
  *
- * @return						{Dispatcher}		The new Client Dispatcher
+ * @return						{ClientDispatcher}	The new Client Dispatcher
  */
-export function createClientDispatcher(stores, finishOnServer) {
-	return createClientDispatcher(finishOnServer, stores, createSubscriptionHandler());
+export function createClientDispatcher(stores: any, finishOnServer: any): ClientDispatcher {
+	if(!isVaildStoreObject(stores)) {
+		throw new Error('The stores must be given as a plain javascript object');
+	}
+	if(typeof finishOnServer !== 'function') {
+		throw new Error('ClientDispatcher require a function that calls the server.');
+	}
+
+	return createNewClientDispatcher(finishOnServer, stores, SubscriptionHandler.createSubscriptionHandler());
 }
 
 /**
  * Create a Server Dispatch from the given Stores.
  *
- * @param stores			{StoresObject}			The stores that the action are dispatched to
+ * @param stores			{StoresObject}		The stores that the action are dispatched to
  *
- * @return						{Dispatcher}	The new Server Dispatcher
+ * @return					{ServerDispatcher}	The new Server Dispatcher
  */
-export function createServerDispatcher(stores) {
-	return createServerDispatcher(undefined, stores, createSubscriptionHandler());
+export function createServerDispatcher(stores: any): ServerDispatcher {
+	if(!isVaildStoreObject(stores)) {
+		throw new Error('The stores must be given as a plain javascript object');
+	}
+
+	return createNewServerDispatcher(undefined, stores, SubscriptionHandler.createSubscriptionHandler());
+}
+
+function isVaildStoreObject(stores: any): boolean {
+	if(typeof stores !== 'object')			return false;
+	for(let storeName in stores) {
+		if(!isValidStore(stores[storeName]))	return false;
+	}
+	return true;
 }

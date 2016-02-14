@@ -174,9 +174,10 @@ export default class Store<S> {
 					return updater(state, action, onServer);
 				});
 			},
-			Promise.resolve(startingPoint.state)	//ERROR, flow error here (????)
+			Promise.resolve(startingPoint.state)
 		);
 
+		// $FlowIssue: not recognizing newStatePromise is a Promise
 		const newStatePromise = updatedStatePromise.then((updatedState) => {
 			if(!updatedState.isFinishingOnServer) return updatedState;
 
