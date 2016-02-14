@@ -1,84 +1,51 @@
-/*
- * //NOTE, not checking because flow says the modules don't exist (look in this directory to see it is wrong)
+/**
+ * @flow
  */
-import Store from './Store';
+import DispatcherFactory from './DispatcherFactory';
+import { ServerDispatchHandler, ClientDispatchHandler } from './DispatchHandler';
 import SubscriptionHandler from './SubscriptionHandler';
-import { createNewDispatcher, createNewClientDispatcher, createNewServerDispatcher } from './Dispatcher';
-import isValidStore from './utils/isValidStore';
 
-import type Dispatcher from './Dispatcher/Dispatcher';
-import type ClientDispatcher from './Dispatcher/ClientDispatcher';
-import type ServerDispatcher from './Dispatcher/ServerDispatcher';
+type StoresObject = {[key: string]: Store<any>};
+type FinishOnServerFunc = (startingPoints: StartingPoints, actions: Array<Action>) => any;
 
 /**
- * Create a new Store.
+ * Creates a DispatcherFactory, from the given stores, that should be used on the server.
  *
- * @param initialState	{any}	The initial state of the object
+ * @param stores		{StoresObject}		The initial stores to use in the dispatcher
+ * @param onServerArg	{any}				The argument to pass to the function given to 'onServer'
+ *											NOTE:	'onServer' is the third argument passed to each updater
  *
- * @return				{Store}	The new Store
+ * @return				{DispatcherFactory}	The dispatcher factory
  */
-export function createStore<S>(initialState: S): Store<S> {
-	if(!initialState) {
-		throw new Error('State must have an initial state.');
-	}
-
-	return Store.createStore(initialState);
+export function createServerFactory(stores: StoresObject, onServerArg: any): DispatcherFactory {
+	return DispatcherFactory.createFactory({
+		stores,
+		createDispatchHandler(currStores: StoresObject): DispatchHandler {
+			return new ServerDispatchHandler(currStores, onServerArg);
+		},,
+		createSubscriptionHandler(): SubscriptionHandler {
+			return new SubscriptionHandler();
+		}
+	});
 }
 
 /**
- * Create a Dispatch from a the given Stores.
+ * Creates a DispatcherFactory, from the given stores, that should be used on the client.
  *
- * @param stores				{StoresObject}	The stores that the action are dispatched to
+ * @param stores			{StoresObject}			The initial stores to use in the dispatcher
+ * @param finishOnServer	{FinishOnServerFunc}	A function that will send the state of dispatch to finish on the
+ *													server
  *
- * @return						{Dispatcher}	The new Dispatcher
+ * @return					{DispatcherFactory}		The dispatcher factory
  */
-export function createDispatcher(stores: any): Dispatcher {
-	if(!isVaildStoreObject(stores)) {
-		throw new Error('The stores must be given as a plain javascript object');
-	}
-
-	return createNewDispatcher(stores, SubscriptionHandler.createSubscriptionHandler());
-}
-
-/**
- * Create a Client Dispatch from the given Stores.
- *
- * @param stores				{StoresObject}		The stores that the action are dispatched to
- * @param finishOnServer		{DispatcherIsoFunc}	The function to call when finishing a dispatch
- *													call on the server
- *
- * @return						{ClientDispatcher}	The new Client Dispatcher
- */
-export function createClientDispatcher(stores: any, finishOnServer: any): ClientDispatcher {
-	if(!isVaildStoreObject(stores)) {
-		throw new Error('The stores must be given as a plain javascript object');
-	}
-	if(typeof finishOnServer !== 'function') {
-		throw new Error('ClientDispatcher require a function that calls the server.');
-	}
-
-	return createNewClientDispatcher(finishOnServer, stores, SubscriptionHandler.createSubscriptionHandler());
-}
-
-/**
- * Create a Server Dispatch from the given Stores.
- *
- * @param stores			{StoresObject}		The stores that the action are dispatched to
- *
- * @return					{ServerDispatcher}	The new Server Dispatcher
- */
-export function createServerDispatcher(stores: any): ServerDispatcher {
-	if(!isVaildStoreObject(stores)) {
-		throw new Error('The stores must be given as a plain javascript object');
-	}
-
-	return createNewServerDispatcher(undefined, stores, SubscriptionHandler.createSubscriptionHandler());
-}
-
-function isVaildStoreObject(stores: any): boolean {
-	if(typeof stores !== 'object')			return false;
-	for(let storeName in stores) {
-		if(!isValidStore(stores[storeName]))	return false;
-	}
-	return true;
+export function createClientFactory(stores: StoresObject, finishOnServer: FinishOnServerFunc): DispatcherFactory {
+	return DispatcherFactory.createFactory({
+		stores,
+		createDispatchHandler(currStores: StoresObject): SubscriptionHandler {
+			return new ClientDispatchHandler(currStores, finishOnServer);
+		},
+		createSubscriptionHandler(): SubscriptionHandler {
+			return new SubscriptionHandler();
+		}
+	});
 }
