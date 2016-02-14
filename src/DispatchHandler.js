@@ -1,12 +1,12 @@
 /**
  * @flow
  */
-import Immutable from 'immutable';
+iimport Immutable from 'immutable';
 
-import PromisePlaceholder from './utils/PromisePlaceholder';
-import resolveMapOfPromises from './utils/resolveMapOfPromises';
+import PromisePlaceholder from '../utils/PromisePlaceholder';
+import resolveMapOfPromises from '../utils/resolveMapOfPromises';
 
-import type Store from './Store';
+import type Store from '../Store';
 
 type StoresMap = Immutable.Map<string, Store<any>>;
 type OnUpdateFunc = (updateStore: StoresMap) => void;
@@ -18,37 +18,26 @@ type DispatchFunctionSettings = { initalStores: StoresMap, onUpdatedStores: OnUp
  */
 export default class DispatchHandler {
 
-	/**
-	 * Create a function that
-	 */
-	static createDispatchFunction(settings: DispatchFunctionSettings): (action: Action) => Promise<StoresMap> {
-		const { initalStores, onUpdatedStores, onError } = settings;
-		const dispatchHandler = new DispatchHandler(initalStores, onUpdatedStores, onError);
-
-		return (action) => dispatchHandler.pushAction(action);
-	}
-
 	_stores: StoresMap;
-	_onUpdatedStores: OnUpdateFunc;
-	_onError: OnErrorFunc;
 	_actionQueue: ?Immutable.List<{ action: Action, promisePlaceholder: PromisePlaceholder}>;
+	_updateFunctions: Immutable.List<OnUpdateFunc>;
+	_errorFunctions: Immutable.List<OnErrorFunc>;
 
 	/**
 	 * The constructor for the DispatchHandler.
 	 *
 	 * @param initalStores		{StoresMap}				The stores to start with
-	 * @param onUpdatedStores 	{(StoresMap) => void}	The function that will be called when the stores are updated
-	 * @param onError			{(Error) => void}		The function that will be called when an error occurs
 	 */
-	constructor(initalStores: StoresMap, onUpdatedStores: OnUpdateFunc, onError: OnErrorFunc) {
+	constructor(initalStores: StoresMap) {
 		this._stores = initalStores;
-		this._onUpdatedStores = onUpdatedStores;
-		this._onError = onError;
 		this._actionQueue = null;
+
+		this._updateFunctions = Immutable.List();
+		this._errorFunctions = Immutable.List();
 	}
 
 	/**
-	 * Add a new action to the queue of action to be dispatched to the stores.
+	 * Add a new action to the queue of actions to be dispatched to the stores.
 	 *
 	 * @param action	{Action}				The action to be dispatched
 	 *
@@ -65,15 +54,75 @@ export default class DispatchHandler {
 
 		// Start dispatch
 		this._actionQueue = Immutable.List();
-		return this._performDispatch(this._stores, action);
+		return this._startDispatch(this._stores, action);
 	}
 
-	_performDispatch(stores: StoresMap, action: Action): Promise<StoresMap> {
+	/**
+	 * Add a new actions to the queue of actions to be dispatched to the stores.
+	 *
+	 * @param actions	{Array<Action>}			The actions to be dispatched
+	 *
+	 * @return			{Promise<StoresMap>}	A promise that contains the stores after all the given action have
+	 *											finished dispatching
+	 */
+	pushActions(actions: Array<Action>): Promise<StoresMap> {
+		// Add each action to the queue
+		const storeMapPromises = actions.map((action) => this.pushAction(action));
+
+		// The returned promise should resolve when the last action is finished
+		return storeMapPromises[storeMapPromises.length - 1];
+	}
+
+	/**
+	 * Get the current stores.
+	 *
+	 * @return 		{StoreMap}	The current stores
+	 */
+	getStores(): StoreMap {
+		return this._stores;
+	}
+
+	/**
+	 * Add a callback for the given event.
+	 *
+	 * @param event	{string}	The event to subscribe to
+	 * @param cb	{Function}	The function to call when the given event happens
+	 */
+	on(event: string, cb: Function) {
+		switch(event) {
+			case 'update':
+				this._updateFunctions = this._updateFunctions.push(cb);
+				break;
+			case 'error':
+				this._errorFunctions = this._errorFunctions.push(cb);
+				break;
+			default:
+				throw new Error(`Invalid event type for DispatchHandler: ${event}`);
+		}
+	}
+
+	_onUpdatedStores(updatedStores: StoresMap) {
+		// Save updated stores
+		this._stores = this._stores.merge(updateStores);
+
+		// Send to event subscribers
+		this._updateFunctions.forEach((updateFunc) => {
+			updateFunc(updatedStores);
+		});
+	}
+
+	_onError(err: Error) {
+		this._errorFunctions.forEach((errorFunc) => {
+			errorFunc(err);
+		});
+	}
+
+	_startDispatch(stores: StoresMap, action: Action): Promise<StoresMap> {
 		// Dispatch the action to each store
-		const updatedStoresPromises = stores.map((store) => store.dispatch(action))
+		let updatedStoresPromises = this._performDispatch(stores, action);
 
 		// Report Results
-		return resolveMapOfPromises(updatedStoresPromises).then((updatedStores) => {
+		updatedStoresPromises = updatedStoresPromises.then((updatedStores) => {
 			this._onUpdatedStores(updatedStores);
 
 			return updatedStores;
@@ -81,10 +130,10 @@ export default class DispatchHandler {
 			this._onError(err);
 
 			return stores;
-		}).then((currentStores) => {
-			// Save updated stores
-			this._stores = currentStores;
+		})
 
+		// Return the stores after dispatch finishes
+		return updatedStoresPromise.then((currentStores) => {
 			if(!this._actionQueue || this._actionQueue.size === 0) {
 				// Pause, to wait for next action
 				this._actionQueue = null;
@@ -94,17 +143,23 @@ export default class DispatchHandler {
 
 			// Start performing the next dispatch
 			const { action: nextAction, promisePlaceholder } = this._dequeueNextAction();
-			this._performDispatch(currentStores, nextAction).then((nextStores) => {
+			this._startDispatch(currentStores, nextAction).then((nextStores) => {
 				// Resolve promise that was returned from 'pushAction'
 				promisePlaceholder.resolve(nextStores);
 			});
 
 			return currentStores;
-		}).catch((err) => {
-			this._onError(err);	//NOTE, this shouldn't be need (just in case)
+		}).catch((err) => {	//NOTE, this shouldn't be need (just in case)
+			this._onError(err);
 
 			throw err;
 		});
+	}
+
+	_performDispatch(stores: StoresMap, action: Action): Promise<StoresMap> {
+		const updatedStoresPromises = stores.map((store) => store.dispatch(action));
+
+		return resolveMapOfPromises(updatedStoresPromises);
 	}
 
 	_dequeueNextAction(): { action: Action, promisePlaceholder: PromisePlaceholder } {
@@ -117,5 +172,3 @@ export default class DispatchHandler {
 		return nextActionObject;
 	}
 }
-
-export const createDispatchFunction = DispatchHandler.createDispatchFunction;
