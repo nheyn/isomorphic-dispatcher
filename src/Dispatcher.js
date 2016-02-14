@@ -3,115 +3,72 @@
  */
 import Immutable from 'immutable';
 
-import PromisePlaceholder from './utils/PromisePlaceholder';
-import makeSubscribeToGroupFunc from './utils/makeSubscribeToGroupFunc';
-import isValidStore from './utils/isValidStore';
-import mapObject from './utils/mapObject';
-import objectPromise from './utils/objectPromise';
-import resolveMapOfPromises from './utils/resolveMapOfPromises';
+import { createDispatchFunction } from './DispatchHandler';
+import makeSubscribeToGroupFunc from '../utils/makeSubscribeToGroupFunc';
+import isValidStore from '../utils/isValidStore';
+import mapObject from '../utils/mapObject';
+import objectPromise from '../utils/objectPromise';
 
-import type Store from './Store';
-import type SubscriptionHandler from './SubscriptionHandler';
+import type Store from '../Store';
+import type SubscriptionHandler from '../SubscriptionHandler';
 
-type StoresObject = {[key: string]: Store<any>};
 type StoresMap = Immutable.Map<string, Store<any>>;
 type StatesObject = {[key: string]: any};
-type StartingPointObject = {[key: string]: StartingPoint<any>};
 type Subscriber = SubscriptionFunc<StatesObject>;
 type UnsubscibeFunc = () => void;
-type DispatcherIsoFunc = (
-	action: Action,
-	pausePoints: {[key: string]: StartingPoint<any>}
-) => Promise<{[key: string]: any}>;
 
-
-/*------------------------------------------------------------------------------------------------*/
-//	--- Dispatcher ---
-/*------------------------------------------------------------------------------------------------*/
 /**
  * A class that contains a group of stores that should all recive the same actions.
+ *
+ * NOTE: This should use 'export default class' but cannot create a subclass that way
  */
 export class Dispatcher {
-
-	_stores: StoresMap;
+	_dispatchHandler: DispatchHandler;
 	_subscriptionHandler: ?SubscriptionHandler;
-	_isDispatching: boolean;
+	_stores: StoresMap;
 
 	/**
 	 * Create a Dispatch from the given Stores.
 	 *
-	 * @param stores				{StoresMap}				The stores that the action are
-	 *														dispatched to
-	 * @param subscriptionHandler	{?SubscriptionHandler}	The subscription handler that
-	 *														keeps track of the of the function
-	 *														that have subscribed
+	 * @param dispatcherHandler		{DispatcherHandler}		The object that will handle dispatch calls
+	 * @param subscriptionHandler	{?SubscriptionHandler}	The subscription handler that keeps track of the of the
+	 *														function that have subscribed
 	 */
-	constructor(stores: StoresMap, subscriptionHandler: ?SubscriptionHandler) {
-		// Check stores are valid
-		stores.forEach((store, storeName) => {
-			if(typeof storeName !== 'string')	throw new Error('store name must be a string');
-			if(!isValidStore(store))			throw new Error('invalid store');
-		});
-
-		this._stores = stores;
+	constructor(dispatchHandler: DispatchHandler, subscriptionHandler: ?SubscriptionHandler) {
+		this._dispatchHandler = dispatchHandler;
 		this._subscriptionHandler = subscriptionHandler;
-		this._isDispatching = false;
+
+		// Set up dispatch handler
+		this._dispatchHandler.on('update', this._onUpdatedStores.bind(this));
+		this._dispatchHandler.on('error', this._onError.bind(this));
+		this._stores = this._dispatchHandler.getStores();
 	}
 
-	 /**
+	/**
 	 * Dispatch the given action to all of the stores.
 	 *
 	 * @param action	{Object}					The action to dispatch
 	 *
-	 * @throws										When dispatch has already been called but hasn't
-	 *												finished
-	 *
 	 * @return			{Promise<{string: any}>}	The states after the dispatch is finished
 	 */
-	dispatch(action: Action): Promise<{[key: string]: any}> {
-		if(this._isDispatching) {
-			return Promise.reject(new Error('cannot dispatch until dispatch is finished'));
-		}
-		if(!action || typeof action !== 'object') {
-			return Promise.reject(new Error('actions must be objects'));
-		}
+	dispatch(action: Action): Promise<StatesObject> {
+		// Add action to queue of actions to be dispatched
+		const updatedStoresPromise = this._dispatchHandler.pushAction(action);
 
-		// Start dispatch
-		this._isDispatching = true;
-
-		// Perform dispatch
-		const dispatchedStoresPromises = this._stores.map((store) => store.dispatch(action));
-
-		return resolveMapOfPromises(dispatchedStoresPromises).then((newStores) => {
-			// Finish dispatch
-			this._isDispatching = false;
-
-			// Save Stores
-			this._stores = newStores;
-
-			// Send state to subscribers
-			const newStates = newStores.map((store) => store.getState()).toJS();
-			if(this._subscriptionHandler) {
-				this._subscriptionHandler.publish(newStates);
-			}
-
-			// Get states
-			return newStates;
+		// Get state after given action
+		return updatedStoresPromise.then((updatedStores) => {
+			return updatedStores.map((store) => store.getState()).toObject();
 		});
 	}
 
 	/**
 	 * Gets the state from all of the Stores.
 	 *
-	 * @throws								When dispatch is currently running
-	 *
 	 * @return	{{string: any}}				The state of all the stores
 	 */
-	getStateForAll(): {[key: string]: any} {
-		if(this._isDispatching) throw new Error('cannot get state until dispatch is finished');
-
+	getStateForAll(): StatesObject {
 		const states = this._stores.map((store) => store.getState());
-		return states.toJS();
+		return states.toObject();
 	}
 
 	/**
@@ -119,12 +76,9 @@ export class Dispatcher {
 	 *
 	 * @param storeName	{string}	The name of the store to get the state of
 	 *
-	 * @throws						When dispatch is currently running
-	 *
 	 * @return			{any}		The state of the given store
 	 */
 	getStateFor(storeName: string): any {
-		if(this._isDispatching) throw new Error('cannot get state until dispatch is finished');
 		if(!this._stores.has(storeName)) {
 			throw new Error(`store name(${storeName}) does not exist`);
 		}
@@ -143,19 +97,14 @@ export class Dispatcher {
 	subscribeToAll(subscriber: Subscriber): UnsubscibeFunc {
 		// Subscribe
 		if(!this._subscriptionHandler) {
-			throw new Error(
-				'cannot subscribe if the dispatcher was not created with a subscription handler'
-			);
+			throw new Error('cannot subscribe if the dispatcher was not created with a subscription handler');
 		}
 		this._subscriptionHandler = this._subscriptionHandler.subscribe(subscriber);
 
 		let hasUnsubscribed = false;
 		return () => {
 			if(!this._subscriptionHandler) {
-				throw new Error(
-					'cannot unsubscripted if the dispatcher was not created' +
-					'with a subscription handler'
-				);
+				throw new Error('cannot unsubscripted if the dispatcher was not created with a subscription handler');
 			}
 
 			// Check if this function has already been called
@@ -186,36 +135,39 @@ export class Dispatcher {
 			throw new Error('store(${storeName}) dose not exist');
 		}
 
-		// Create subscribtion function for single store
+		// Create subscription function for single store
 		const storeSubscriber = makeSubscribeToGroupFunc(storeName, subscriber);
 
 		// Subscribe
 		if(!this._subscriptionHandler) {
-			throw new Error(
-				'cannot subscribe if the dispatcher was not created with a subscribtion handler'
-			);
+			throw new Error('cannot subscribe if the dispatcher was not created with a subscription handler');
 		}
 		this._subscriptionHandler = this._subscriptionHandler.subscribe(storeSubscriber);
 
 		// Unsubscribe
 		var hasUnsubscribed = false;
 		return () => {
+			if(hasUnsubscribed)	throw new Error('subscriber has already been removed from the dispatcher');
 			if(!this._subscriptionHandler) {
-				throw new Error(
-					'cannot unsubscribe if the dispatcher was not created' +
-					'with a subscribtion handler'
-				);
-			}
-
-			// Check if this function has already been called
-			if(hasUnsubscribed) {
-				throw new Error('subscriber has already been removed from the dispatcher');
-			}
-			else {
-				hasUnsubscribed = true;
+				throw new Error('cannot unsubscribe if the dispatcher was not created with a subscription handler');
 			}
 
 			this._subscriptionHandler = this._subscriptionHandler.unsubscribe(storeSubscriber);
+			hasUnsubscribed = true;
 		};
+	}
+
+	_onUpdatedStores(updatedStores: StoresMap) {
+		// Save updated stores
+		this._stores = updatedStores;
+
+		// Send state to subscribers
+		const subscriptionHandler = this._subscriptionHandler
+		if(subscriptionHandler) subscriptionHandler.publish(this.getStateForAll());
+	}
+
+	_onDispatchError(err: Error): void {
+		console.error('Error performing dispatch:', err);
+		throw err;
 	}
 }
