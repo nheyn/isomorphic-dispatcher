@@ -3,10 +3,10 @@
  */
 import Immutable from 'immutable';
 
-import PromisePlaceholder from '../utils/PromisePlaceholder';
-import resolveMapOfPromises from '../utils/resolveMapOfPromises';
+import PromisePlaceholder from './utils/PromisePlaceholder';
+import resolveMapOfPromises from './utils/resolveMapOfPromises';
 
-import type Store from '../Store';
+import type Store from './Store';
 
 type StoresMap = Immutable.Map<string, Store<any>>;
 type OnUpdateFunc = (updateStore: StoresMap) => void;
