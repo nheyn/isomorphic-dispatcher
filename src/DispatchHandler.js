@@ -12,6 +12,7 @@ type StoresMap = Immutable.Map<string, Store<any>>;
 type OnUpdateFunc = (updateStore: StoresMap) => void;
 type OnErrorFunc = (err: Error) => void;
 type DispatchFunctionSettings = { initalStores: StoresMap, onUpdatedStores: OnUpdateFunc, onError: OnErrorFunc };
+type FinishOnServerFunc = (startingPoints: StartingPoints, actions: Array<Action>) => any;
 
 /**
  * A class to handle calling 'dispatch' with different actions concurrently.
@@ -170,5 +171,101 @@ export default class DispatchHandler {
 		this._actionQueue = actionQueue.shift();
 
 		return nextActionObject;
+	}
+}
+
+export class ServerDispatchHandler extends DispatcherHandler {
+	_onServerArg: any;
+
+	/**
+	 * The constructor for the DispatchHandler.
+	 *
+	 * @param initalStores	{StoresMap}	The stores to start with
+	 * @param onServerArg	{any}		The arg
+	 */
+	constructor(initalStores: StoresMap, onServerArg: any) {
+		super(initalStores);
+
+		this._onServerArg = onServerArg;
+	}
+
+	_performDispatch(stores: StoresMap, action: Action): Promise<StoresMap> {
+		const updatedStoresPromises = stores.map((store) => {
+			return store.dispatch(action, { arg: this._onServerArg })
+		});
+
+		return resolveMapOfPromises(updatedStoresPromises);
+	}
+}
+
+export class ClientDispatchHandler extends DispatcherHandler {
+	_finishOnServer: FinishOnServerFunc;
+
+	/**
+	 * The constructor for the DispatchHandler.
+	 *
+	 * @param initalStores		{StoresMap}				The stores to start with
+	 * @param finishOnServer	{FinishOnServerFunc}	A function that finishes a dispatching an action on the server
+	 */
+	constructor(initalStores: StoresMap, finishOnServer: FinishOnServerFunc) {
+		super(initalStores);
+
+		this._finishOnServer = finishOnServer;
+	}
+
+	_performDispatch(stores: StoresMap, action: Action): Promise<StoresMap> {
+		// Call dispatch on each store
+		const serverResponsePlaceholders = Immutable.Map();
+		const updatedStoresPromises = stores.map((store, storeName) => {
+			return new Promise((resolve, reject) => {
+				const updatedStorePromise = store.dispatch(action, {
+					finishOnServer(state, index) {
+						resolve({ storePromise: updatedStorePromise, pausePoint: { state, index } });
+
+						const responsePlaceholder = new PromisePlaceholder();
+						serverResponsePlaceholders = serverResponsePlaceholders.set(storeName, responsePlaceholder);
+
+						return responsePlaceholder.promise();
+					},
+					finishedUpdaters(didFinishOnClient) {
+						if(didFinishOnClient) resolve({ storePromise: updatedStorePromise });
+					}
+				});
+			});
+		});
+
+		// Call server if needed
+		return resolveMapOfPromises(updatedStoresPromises).then((updatedStores, storeName) => {
+			// Wait for updaters in each store to finish
+			let pausePoints = {};
+			const updatedStoresPromise = updatedStores.map(({ storePromise, pausePoint }) => {
+				if(pausePoint) pausePoints[storeName] = pausePoint;
+
+				return storePromise;
+			});
+
+			// Return if server doesn't need to be called
+			if(Object.keys(pausePoints).length === 0) return updatedStoresPromise;
+
+			// Send to server
+			const queuedActions = this._actionQueue.toArray();
+			this._actionQueue = null;
+
+			this._finishOnServer(pausePoints, [action, ...queuedActions]).then((updatedStates) => {
+				// Get the stores updated on the server
+				const updatedStores = Immutable.Map(updatedStates).map((updatedState, storeName) => {
+					if(!this._stores.has(storeName)) {
+						throw new Error('Invalid store, ${storeName}, returned from server')
+					}
+
+					return this._stores.get(storeName).replaceState(updatedState);
+				});
+
+				// Set the updates in the dispatcher
+				this._onUpdatedStores(updatedStores);
+			});
+
+			return updatedStoresPromise;
+		});
 	}
 }
