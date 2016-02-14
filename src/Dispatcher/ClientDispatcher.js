@@ -116,7 +116,7 @@ export default class ClientDispatcher extends Dispatcher {
 					promisePlaceholder.reject(err);
 				});
 			}).then(() => {
-				// Listen for any remaning 'onServer' calls
+				// Listen for any remaining 'onServer' calls
 				this._performFinishOnServer(action, promisePlaceholders, timeout)
 			});
 		}, timeout);

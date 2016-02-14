@@ -3,13 +3,17 @@ declare module "immutable" {
 		static <T>(array?: Array<T>): List<T>;
 		set(value: T): List<T>;
 		get(index: number): T;
+		first(): T;
+		last(): T;
 		count(): number;
 		push(...values: T[]): List<T>;
 		delete(index: number): List<T>;
+		shift(): List<T>;
 		indexOf(searchValue: T): number;
 		reduce<R>(reducer: (reduction: R, value: T, index: number) => R, initialReduction?: R): R;
 		forEach(sideEffect: (value: T, index: number) => void): void;
 		toJS(): Array<T>;
+		toArray(): Array<T>;
 	}
 
 	declare class Map<K, V> {
@@ -23,5 +27,6 @@ declare module "immutable" {
 		map<M>(mapper: (value: V, key: K) => M): Map<K, M>;
 		forEach(sideEffect: (value: V, key: K) => void): void;
 		toJS(): {[key: K]: V};
+		toObject(): {[key: K]: V};
 	}
 }
