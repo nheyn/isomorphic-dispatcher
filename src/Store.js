@@ -129,14 +129,6 @@ export default class Store<S> {
 		});
 	}
 
-	/**
-	 * Gets the current state of the Store.
-	 *
-	 * @return {any}	The state of the Store
-	 */
-	getState(): S {
-		return this._state;
-	}
 
 	/**
 	 * Replace the state of the current store.
@@ -146,7 +138,16 @@ export default class Store<S> {
 	 * @return				A store with the same updaters, but the given state
 	 */
 	replaceState(newState: S): Store<S> {
-		this._state = newState;
+		return new Store(newState, this._updaters);
+	}
+
+	/**
+	 * Gets the current state of the Store.
+	 *
+	 * @return {any}	The state of the Store
+	 */
+	getState(): S {
+		return this._state;
 	}
 
 	_makeOnServer(state: S, index: number, settings: DispatchSettings): OnServerFunc<S> {
