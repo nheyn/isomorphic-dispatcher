@@ -2,41 +2,40 @@ jest.dontMock('../src/Dispatcher');
 
 var Dispatcher = require('../src/Dispatcher');
 
-describe('Dispatcher', testDispatcher);
-function testDispatcher() {
-	it('has the given stores', () => {
+describe('Dispatcher', () => {
+	it('has the state from the stores returned by the DispatchHandler', () => {
 		//TODO, rewrite test
 	});
 
-	it('dispatches to all of its stores', () => {
+	it('updates its stores when DispatchHandler performs an update event', () => {
 		//TODO, rewrite test
 	});
 
-	it('can get the states of all of its stores', () => {
+	it('throws the error when DispatchHandler performs an error event', () => {
 		//TODO, rewrite test
 	});
 
-	it('allows function to subscribe to it', () => {
+	it('add actions to the dispatch handler', () => {
 		//TODO, rewrite test
 	});
 
-	it('calls all of its subscribers with the stores state', () => {
+	it('can get all states from the stores in its DispatchHandler', () => {
 		//TODO, rewrite test
 	});
-}
 
-describe('ClientDispatcher', () => {
-	testDispatcher();
-
-	it('calls iso function when onServer is called', () => {
+	it('can get states of single stores from its DispatchHandler', () => {
 		//TODO, rewrite test
 	});
-});
 
-describe('ServerDispatcher', () => {
-	testDispatcher();
+	it('can add function to its SubscribtionHandler', () => {
+		//TODO, rewrite test
+	});
 
-	it('can start stores in the middle', () => {
+	it('calls the unsubscribe function returned by its SubscribtionHandler', () => {
+		//TODO, rewrite test
+	});
+
+	it('calls its SubscribtionHandler publish method when the state is updated', () => {
 		//TODO, rewrite test
 	});
 });
