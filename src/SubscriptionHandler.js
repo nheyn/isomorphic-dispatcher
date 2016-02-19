@@ -3,9 +3,6 @@
  */
 import Immutable from 'immutable';
 
-/*------------------------------------------------------------------------------------------------*/
-//	--- Subscription Handler ---
-/*------------------------------------------------------------------------------------------------*/
 /**
  * An object that can add and remove functions that recive values when the
  * the publish() method is called.
