@@ -1,7 +1,7 @@
 jest.dontMock('immutable');
 jest.dontMock('../src/SubscriptionHandler');
 
-var SubscriptionHandler = require('../src/SubscriptionHandler');
+const SubscriptionHandler = require('../src/SubscriptionHandler');
 
 describe('SubscriptionHandler', () => {
 	it('can add subscribers', () => {
