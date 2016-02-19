@@ -28,8 +28,7 @@ export default class SubscriptionHandler<V> {
 	 *
 	 * @return				{SubscriptionHandler}			The new handler
 	 */
-	static createSubscriptionHandler(): SubscriptionHandler<V> {
-		//ERROR, Immutable.List() returns undefined ???????????????
+	static createSubscriptionHandler(): SubscriptionHandler {
 		return new SubscriptionHandler(Immutable.List());
 	}
 
@@ -71,3 +70,5 @@ export default class SubscriptionHandler<V> {
 		});
 	}
 }
+
+export const createSubscriptionHandler = SubscriptionHandler.createSubscriptionHandler;

@@ -112,7 +112,8 @@ export default class Store<S> {
 		// $FlowIssue: not recognizing newStatePromise is a Promise
 		const newStatePromise = updatedStatePromise.then((updatedState) => {
 			const finishedOnClient = !updatedState.isFinishingOnServer;
-			if(settings.finishedUpdaters) this.finishedUpdaters(finishedOnClient);
+
+			if(settings.finishedUpdaters) settings.finishedUpdaters(finishedOnClient);
 
 			if(finishedOnClient) return updatedState;
 
@@ -170,4 +171,8 @@ export default class Store<S> {
 	_isValidState(testState: S): boolean {
 		return typeof testState !== 'undefined';
 	}
+}
+
+export function createStore<S>(initialState: S): Store<S> {
+	return Store.createStore(initialState);
 }

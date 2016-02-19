@@ -1,12 +1,19 @@
 /**
  * @flow
  */
-import DispatcherFactory from './DispatcherFactory';
 import { ServerDispatchHandler, ClientDispatchHandler } from './DispatchHandler';
-import SubscriptionHandler from './SubscriptionHandler';
+import { createDispatchFactory } from './DispatcherFactory';
+import { createSubscriptionHandler } from './SubscriptionHandler';
 
+import type Immutable from 'immutable';
+import type Store from './Store';
+import type DispatchHandler from './DispatchHandler';
+import type DispatcherFactory from './DispatcherFactory';
+import type SubscriptionHandler from './SubscriptionHandler';
+
+type StoresMap = Immutable.Map<string, Store<any>>;
 type StoresObject = {[key: string]: Store<any>};
-type FinishOnServerFunc = (startingPoints: StartingPoints, actions: Array<Action>) => any;
+type FinishOnServerFunc = (startingPoints: {[key: string]: StartingPoint}, actions: Array<Action>) => any;
 
 /**
  * Creates a DispatcherFactory, from the given stores, that should be used on the server.
@@ -18,13 +25,13 @@ type FinishOnServerFunc = (startingPoints: StartingPoints, actions: Array<Action
  * @return				{DispatcherFactory}	The dispatcher factory
  */
 export function createServerFactory(stores: StoresObject, onServerArg: any): DispatcherFactory {
-	return DispatcherFactory.createFactory({
+	return createDispatchFactory({
 		stores,
-		createDispatchHandler(currStores: StoresObject): DispatchHandler {
+		createDispatchHandler(currStores: StoresMap): DispatchHandler {
 			return new ServerDispatchHandler(currStores, onServerArg);
-		},,
+		},
 		createSubscriptionHandler(): SubscriptionHandler {
-			return new SubscriptionHandler();
+			return createSubscriptionHandler();
 		}
 	});
 }
@@ -39,13 +46,13 @@ export function createServerFactory(stores: StoresObject, onServerArg: any): Dis
  * @return					{DispatcherFactory}		The dispatcher factory
  */
 export function createClientFactory(stores: StoresObject, finishOnServer: FinishOnServerFunc): DispatcherFactory {
-	return DispatcherFactory.createFactory({
+	return createDispatchFactory({
 		stores,
-		createDispatchHandler(currStores: StoresObject): SubscriptionHandler {
+		createDispatchHandler(currStores: StoresMap): DispatchHandler {
 			return new ClientDispatchHandler(currStores, finishOnServer);
 		},
 		createSubscriptionHandler(): SubscriptionHandler {
-			return new SubscriptionHandler();
+			return createSubscriptionHandler();
 		}
 	});
 }

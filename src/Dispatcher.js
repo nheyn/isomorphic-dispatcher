@@ -3,14 +3,14 @@
  */
 import Immutable from 'immutable';
 
-import { createDispatchFunction } from './DispatchHandler';
-import makeSubscribeToGroupFunc from '../utils/makeSubscribeToGroupFunc';
-import isValidStore from '../utils/isValidStore';
-import mapObject from '../utils/mapObject';
-import objectPromise from '../utils/objectPromise';
+import makeSubscribeToGroupFunc from './utils/makeSubscribeToGroupFunc';
+import isValidStore from './utils/isValidStore';
+import mapObject from './utils/mapObject';
+import objectPromise from './utils/objectPromise';
 
-import type Store from '../Store';
-import type SubscriptionHandler from '../SubscriptionHandler';
+import type Store from './Store';
+import type DispatchHandler from './DispatchHandler';
+import type SubscriptionHandler from './SubscriptionHandler';
 
 type StoresMap = Immutable.Map<string, Store<any>>;
 type StatesObject = {[key: string]: any};
@@ -22,7 +22,7 @@ type UnsubscibeFunc = () => void;
  *
  * NOTE: This should use 'export default class' but cannot create a subclass that way
  */
-export class Dispatcher {
+export default class Dispatcher {
 	_dispatchHandler: DispatchHandler;
 	_subscriptionHandler: ?SubscriptionHandler;
 	_stores: StoresMap;
@@ -30,7 +30,7 @@ export class Dispatcher {
 	/**
 	 * Create a Dispatch from the given Stores.
 	 *
-	 * @param dispatcherHandler		{DispatcherHandler}		The object that will handle dispatch calls
+	 * @param dispatchHandler		{DispatchHandler}		The object that will handle dispatch calls
 	 * @param subscriptionHandler	{?SubscriptionHandler}	The subscription handler that keeps track of the of the
 	 *														function that have subscribed
 	 */
@@ -40,7 +40,7 @@ export class Dispatcher {
 
 		// Set up dispatch handler
 		this._dispatchHandler.on('update', this._onUpdatedStores.bind(this));
-		this._dispatchHandler.on('error', this._onError.bind(this));
+		this._dispatchHandler.on('error', this._onDispatchError.bind(this));
 		this._stores = this._dispatchHandler.getStores();
 	}
 
