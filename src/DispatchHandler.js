@@ -1,18 +1,27 @@
 /**
  * @flow
  */
-iimport Immutable from 'immutable';
+import Immutable from 'immutable';
 
-import PromisePlaceholder from '../utils/PromisePlaceholder';
-import resolveMapOfPromises from '../utils/resolveMapOfPromises';
+import PromisePlaceholder from './utils/PromisePlaceholder';
+import resolveMapOfPromises from './utils/resolveMapOfPromises';
+import mapObject from './utils/mapObject';
 
-import type Store from '../Store';
+import type Store from './Store';
 
 type StoresMap = Immutable.Map<string, Store<any>>;
 type OnUpdateFunc = (updateStore: StoresMap) => void;
 type OnErrorFunc = (err: Error) => void;
 type DispatchFunctionSettings = { initalStores: StoresMap, onUpdatedStores: OnUpdateFunc, onError: OnErrorFunc };
-type FinishOnServerFunc = (startingPoints: StartingPoints, actions: Array<Action>) => any;
+type FinishOnServerFunc = (
+	startingPoints: {[key: string]: StartingPoint},
+	actions: Array<Action>
+) => Promise<{[key: string]: any}>;
+type ClientDispatchResults = {
+	updatedStoresPromise: Promise<StoresMap>,
+	pausePoints: Immutable.Map<string, StartingPoint>,
+	responsePlaceholders: Immutable.Map<string, PromisePlaceholder>
+};
 
 /**
  * A class to handle calling 'dispatch' with different actions concurrently.
@@ -79,7 +88,7 @@ export default class DispatchHandler {
 	 *
 	 * @return 		{StoreMap}	The current stores
 	 */
-	getStores(): StoreMap {
+	getStores(): StoresMap {
 		return this._stores;
 	}
 
@@ -104,7 +113,7 @@ export default class DispatchHandler {
 
 	_onUpdatedStores(updatedStores: StoresMap) {
 		// Save updated stores
-		this._stores = this._stores.merge(updateStores);
+		this._stores = this._stores.merge(updatedStores);
 
 		// Send to event subscribers
 		this._updateFunctions.forEach((updateFunc) => {
@@ -134,7 +143,7 @@ export default class DispatchHandler {
 		})
 
 		// Return the stores after dispatch finishes
-		return updatedStoresPromise.then((currentStores) => {
+		return updatedStoresPromises.then((currentStores) => {
 			if(!this._actionQueue || this._actionQueue.size === 0) {
 				// Pause, to wait for next action
 				this._actionQueue = null;
@@ -174,7 +183,7 @@ export default class DispatchHandler {
 	}
 }
 
-export class ServerDispatchHandler extends DispatcherHandler {
+export class ServerDispatchHandler extends DispatchHandler {
 	_onServerArg: any;
 
 	/**
@@ -198,7 +207,7 @@ export class ServerDispatchHandler extends DispatcherHandler {
 	}
 }
 
-export class ClientDispatchHandler extends DispatcherHandler {
+export class ClientDispatchHandler extends DispatchHandler {
 	_finishOnServer: FinishOnServerFunc;
 
 	/**
@@ -214,58 +223,98 @@ export class ClientDispatchHandler extends DispatcherHandler {
 	}
 
 	_performDispatch(stores: StoresMap, action: Action): Promise<StoresMap> {
-		// Call dispatch on each store
-		const serverResponsePlaceholders = Immutable.Map();
-		const updatedStoresPromises = stores.map((store, storeName) => {
-			return new Promise((resolve, reject) => {
-				const updatedStorePromise = store.dispatch(action, {
-					finishOnServer(state, index) {
-						resolve({ storePromise: updatedStorePromise, pausePoint: { state, index } });
+		// Preform client side dispatch
+		const clientDispatchPromise = this._performClientDispatch(stores, action);
 
-						const responsePlaceholder = new PromisePlaceholder();
-						serverResponsePlaceholders = serverResponsePlaceholders.set(storeName, responsePlaceholder);
+		return clientDispatchPromise.then(({ updatedStoresPromise, pausePoints, responsePlaceholders}) => {
+			// Finish on server, if any 'onServer' was called
+			if(responsePlaceholders.size > 0) {
+				const actionQueue = this._actionQueue? this._actionQueue: Immutable.List();
+				this._actionQueue = null;
 
-						return responsePlaceholder.promise();
-					},
-					finishedUpdaters(didFinishOnClient) {
-						if(didFinishOnClient) resolve({ storePromise: updatedStorePromise });
+				const queuedActions = actionQueue.map(({ action }) => action).toArray();
+				let queuedPromisePlaceholders = actionQueue.map(({ promisePlaceholder}) => promisePlaceholder);
+				let responsePlaceholdersLeft = responsePlaceholders;
+
+				// Send to server
+				this._finishOnServer(pausePoints, [action, ...queuedActions]).then((responseStates) => {
+					for(let storeName in responseStates) {
+						const responseState = responseStates[storeName];
+
+						// Return result for paused dispatches
+						if(responsePlaceholdersLeft.has(storeName)) {
+							const responsePlaceholder = responsePlaceholdersLeft.get(storeName);
+							responsePlaceholdersLeft = responsePlaceholdersLeft.delete(storeName);
+
+							//Give result to Stores
+							responsePlaceholder.resolve(responseState);
+						}
 					}
+
+					// Return result for queued actions
+					if(queuedPromisePlaceholders.size > 0) {
+						queuedPromisePlaceholders.forEach((queuedPromisePlaceholder) => {
+							//Give result to dispatch caller
+							queuedPromisePlaceholder.resolve(responseStates);
+						});
+
+						queuedPromisePlaceholders = queuedPromisePlaceholders.clear();
+					}
+
+					// Send errors if any stores are not returned
+					if(responsePlaceholdersLeft.size > 0) {
+						throw new Error('No state for store missing from server response');
+					}
+				}).catch((err) => {
+					// Send error to stores
+					responsePlaceholdersLeft.forEach((responsePlaceholder) => {
+						responsePlaceholder.reject(err);
+					});
+
+					// Send error to dispatch callers
+					queuedPromisePlaceholders.forEach((queuedPromisePlaceholder) => {
+						queuedPromisePlaceholder.reject(err);
+					});
 				});
+			}
+
+			// Return the final state (resolves after server returns response)
+			return updatedStoresPromise;
+		});
+	}
+
+	_performClientDispatch(stores: StoresMap, action: Action): Promise<ClientDispatchResults> {
+		let responsePlaceholders = Immutable.Map();
+		let updatedStoresPromises = Immutable.Map();
+
+		// Get pause points from each store's dispatch
+		const pausePointsPromises = stores.map((store, storeName) => {
+			return new Promise((resolve, reject) => {
+				// Perform dispatch, track returned promise for final return from 'dispatch method'
+				updatedStoresPromises = updatedStoresPromises.set(storeName,
+					store.dispatch(action, {
+						finishOnServer(state, index) {
+							resolve({ state, index });
+
+							const responsePlaceholder = new PromisePlaceholder();
+							responsePlaceholders = responsePlaceholders.set(storeName, responsePlaceholder);
+							return responsePlaceholder.getPromise();
+						},
+						finishedUpdaters(didFinishOnClient) {
+							// $FlowIssue - null is valid resolved value (filtered out below)
+							if(didFinishOnClient) resolve(null);
+						}
+					})
+				);
 			});
 		});
 
-		// Call server if needed
-		return resolveMapOfPromises(updatedStoresPromises).then((updatedStores, storeName) => {
-			// Wait for updaters in each store to finish
-			let pausePoints = {};
-			const updatedStoresPromise = updatedStores.map(({ storePromise, pausePoint }) => {
-				if(pausePoint) pausePoints[storeName] = pausePoint;
+		// Wait for client  part of dispatch to finish
+		return resolveMapOfPromises(pausePointsPromises).then((maybePausePoints) => {
+			const updatedStoresPromise = resolveMapOfPromises(updatedStoresPromises);
+			const pausePoints = maybePausePoints.filter((maybePausePoint) => maybePausePoint? true: false);
 
-				return storePromise;
-			});
-
-			// Return if server doesn't need to be called
-			if(Object.keys(pausePoints).length === 0) return updatedStoresPromise;
-
-			// Send to server
-			const queuedActions = this._actionQueue.toArray();
-			this._actionQueue = null;
-
-			this._finishOnServer(pausePoints, [action, ...queuedActions]).then((updatedStates) => {
-				// Get the stores updated on the server
-				const updatedStores = Immutable.Map(updatedStates).map((updatedState, storeName) => {
-					if(!this._stores.has(storeName)) {
-						throw new Error('Invalid store, ${storeName}, returned from server')
-					}
-
-					return this._stores.get(storeName).replaceState(updatedState);
-				});
-
-				// Set the updates in the dispatcher
-				this._onUpdatedStores(updatedStores);
-			});
-
-			return updatedStoresPromise;
+			return { updatedStoresPromise, pausePoints, responsePlaceholders };
 		});
 	}
 }
