@@ -186,7 +186,83 @@ describe('ClientDispatchHandler', () => {
 		return Promise.resolve(stores);
 	}));
 
-	//TODO, add client tests
+	pit('does not call the "finishOnServer" function if the store pauses during a dispatch', () => {
+		const dispatchHandler = DispatchHandler.createClientDispatchHandler(
+			Immutable.Map({ store: createStoreMock() }),
+			() => {
+				expect('not').toBe('called');
+
+				return Promise.resolve({});
+			}
+		);
+
+		return dispatchHandler.pushAction({ type: 'TEST_ACTION' });
+	});
+
+	pit('pauses the locations the stores pauses to the "finishOnServer" function for each paused store', () => {
+		const store0 = createStoreMock();
+		const store1 = createPauseStoreMock({ paused: 'state1' }, 1);
+		const store2 = createPauseStoreMock({ paused: 'state2' }, 2);
+
+		const dispatchHandler = DispatchHandler.createClientDispatchHandler(
+			Immutable.Map({ store0, store1, store2}),
+			(startingPoints) => {
+				// Simulate call to the server
+				expect(startingPoints).toContain({ state: { paused: 'state1' }, index: 1 });
+				expect(startingPoints).toContain({ state: { paused: 'state2' }, index: 2 });
+
+				return Promise.resolve({});
+			}
+		);
+
+		return dispatchHandler.pushAction({ type: 'TEST_ACTION' });
+	});
+
+	pit('pauses the locations the stores pauses to the "finishOnServer" function', () => {
+		const updatedStore0 = createStoreMock();
+		const updatedStore1 = createStoreMock();
+		const updatedStore2 = createStoreMock();
+		const store0 = createStoreMock(updatedStore0);
+		const store1 = createPauseStoreMock({ paused: 'state' }, 0);
+		const store2 = createPauseStoreMock({ paused: 'state' }, 0);
+
+		const dispatchHandler = DispatchHandler.createClientDispatchHandler(
+			Immutable.Map({ store0, store1, store2}),
+			(startingPoints) => {
+				// Simulate call to the server
+				return Promise.resolve({
+					store1: updatedStore1,
+					store2: updatedStore2
+				});
+			}
+		);
+
+		return dispatchHandler.pushAction({ type: 'TEST_ACTION' }).then((updatedStores) => {
+			expect(updatedStores.get('store0')).toBe(updatedStore0);
+			expect(updatedStores.get('store1')).toBe(updatedStore1);
+			expect(updatedStores.get('store2')).toBe(updatedStore2);
+		});
+	});
+
+	pit('passes the correct actions to the "finishOnServer" function', () => {
+		const dispatchHandler = DispatchHandler.createClientDispatchHandler(
+			Immutable.Map({ store: createPauseStoreMock({ paused: 'state' }, 0) }),
+			(startingPoints, actions) => {
+				// Simulate call to the server
+				expect(actions).toContain({ type: 'TEST_ACTION_0' });
+				expect(actions).toContain({ type: 'TEST_ACTION_1' });
+				expect(actions).toContain({ type: 'TEST_ACTION_2' });
+
+				return Promise.resolve({});
+			}
+		);
+
+		return dispatchHandler.pushActions([
+			{ type: 'TEST_ACTION_0' },
+			{ type: 'TEST_ACTION_1' },
+			{ type: 'TEST_ACTION_2' }
+		]);
+	});
 });
 
 // Mocks
@@ -203,8 +279,30 @@ function createStoreMock(newStore) {
 	return store;
 }
 
+function createPauseStoreMock(state, index) {
+	const store = jest.genMockFunction();
+	store.dispatch = jest.genMockFunction().mockImplementation((action, settings) => {
+		if(settings && settings.finishedUpdaters) settings.finishedUpdaters(true);
+
+		expect(settings.finishOnServer).toBeDefined();
+		return Promise.resolve(settings.finishOnServer(state, index));
+	});
+
+	return store;
+}
+
 function getActions(store) {
 	const dispatchCalls = store.dispatch.mock.calls;
 
 	return dispatchCalls.map(([action]) => action);
+}
+
+function getSettings(store) {
+	const dispatchCalls = store.dispatch.mock.calls;
+
+	return dispatchCalls.map(([action, settings]) => settings);
+}
+
+function getOnServerArgs(store) {
+	return getSettings(store).map(({ arg }) => arg);
 }
