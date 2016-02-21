@@ -70,8 +70,6 @@ export default class Store<S> {
 	 */
 	dispatch(action: Action, settings: DispatchSettings<S> = {}): Promise<Store<S>> {
 		// Check args
-		const { replaceState, skip, finishOnServer, arg } = settings;
-
 		if(!action || typeof action !== 'object') throw new Error('actions must be objects');
 		if(settings.skip && typeof settings.skip !== 'number') throw new Error('settings.skip must be a number');
 		if(settings.finishOnServer && settings.arg) {
