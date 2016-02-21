@@ -1,12 +1,12 @@
 /**
  * @flow
  */
+import Store from './Store';
 import { ServerDispatchHandler, ClientDispatchHandler } from './DispatchHandler';
 import { createDispatchFactory } from './DispatcherFactory';
 import { createSubscriptionHandler } from './SubscriptionHandler';
 
 import type Immutable from 'immutable';
-import type Store from './Store';
 import type DispatchHandler from './DispatchHandler';
 import type DispatcherFactory from './DispatcherFactory';
 import type SubscriptionHandler from './SubscriptionHandler';
@@ -55,4 +55,15 @@ export function createClientFactory(stores: StoresObject, finishOnServer: Finish
 			return createSubscriptionHandler();
 		}
 	});
+}
+
+/**
+ * Create a new Store.
+ *
+ * @param initialState	{any}	The initial state of the object
+ *
+ * @return				{Store}	The new Store
+ */
+export function createStore<S>(initialState: S): Store<S> {
+	return Store.createStore(initialState);
 }
