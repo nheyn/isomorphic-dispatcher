@@ -28,7 +28,7 @@ export default class Dispatcher {
 	_stores: StoresMap;
 
 	/**
-	 * Create a Dispatch from the given Stores.
+	 * Constructor for the Dispatcher.
 	 *
 	 * @param dispatchHandler		{DispatchHandler}		The object that will handle dispatch calls
 	 * @param subscriptionHandler	{?SubscriptionHandler}	The subscription handler that keeps track of the of the
@@ -42,6 +42,19 @@ export default class Dispatcher {
 		this._dispatchHandler.on('update', this._onUpdatedStores.bind(this));
 		this._dispatchHandler.on('error', this._onDispatchError.bind(this));
 		this._stores = this._dispatchHandler.getStores();
+	}
+
+	/**
+	 * Create a Dispatch that uses the given DispatchHandler / SubscriptionHandler.
+	 *
+	 * @param dispatchHandler		{DispatchHandler}		The object that will handle dispatch calls
+	 * @param subscriptionHandler	{?SubscriptionHandler}	The subscription handler that keeps track of the of the
+	 *														function that have subscribed
+	 *
+	 * @return						{Dispatcher}			The new Dispatcher
+	 */
+	static createDispatcher(dispatchHandler: DispatchHandler, subscriptionHandler: ?SubscriptionHandler): Dispatcher {
+		return new Dispatcher(dispatchHandler, subscriptionHandler);
 	}
 
 	/**
@@ -171,3 +184,5 @@ export default class Dispatcher {
 		throw err;
 	}
 }
+
+export const createDispatcher = Dispatcher.createDispatcher;
