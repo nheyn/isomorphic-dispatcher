@@ -12,7 +12,7 @@ import type Store from './Store';
 type StoresMap = Immutable.Map<string, Store<any>>;
 type OnUpdateFunc = (updateStore: StoresMap) => void;
 type OnErrorFunc = (err: Error) => void;
-type DispatchFunctionSettings = { initalStores: StoresMap, onUpdatedStores: OnUpdateFunc, onError: OnErrorFunc };
+type DispatchFunctionSettings = { initialStores: StoresMap, onUpdatedStores: OnUpdateFunc, onError: OnErrorFunc };
 type FinishOnServerFunc = (
 	startingPoints: {[key: string]: StartingPoint},
 	actions: Array<Action>
@@ -36,14 +36,25 @@ export default class DispatchHandler {
 	/**
 	 * The constructor for the DispatchHandler.
 	 *
-	 * @param initalStores		{StoresMap}				The stores to start with
+	 * @param initialStores		{StoresMap}			The stores to start with
 	 */
-	constructor(initalStores: StoresMap) {
-		this._stores = initalStores;
+	constructor(initialStores: StoresMap) {
+		this._stores = initialStores;
 		this._actionQueue = null;
 
 		this._updateFunctions = Immutable.List();
 		this._errorFunctions = Immutable.List();
+	}
+
+	/**
+	 * The create a DispatchHandler with the given initial stores.
+	 *
+	 * @param initialStores		{StoresMap}			The stores to start with
+	 *
+	 * @return					{DispatchHandler}	The new DispatchHandler
+	 */
+	static createDispatchHandler(initialStores: StoresMap): DispatchHandler {
+		return new DispatchHandler(initialStores);
 	}
 
 	/**
@@ -189,11 +200,11 @@ export class ServerDispatchHandler extends DispatchHandler {
 	/**
 	 * The constructor for the DispatchHandler.
 	 *
-	 * @param initalStores	{StoresMap}	The stores to start with
+	 * @param initialStores	{StoresMap}	The stores to start with
 	 * @param onServerArg	{any}		The arg
 	 */
-	constructor(initalStores: StoresMap, onServerArg: any) {
-		super(initalStores);
+	constructor(initialStores: StoresMap, onServerArg: any) {
+		super(initialStores);
 
 		this._onServerArg = onServerArg;
 	}
@@ -213,11 +224,11 @@ export class ClientDispatchHandler extends DispatchHandler {
 	/**
 	 * The constructor for the DispatchHandler.
 	 *
-	 * @param initalStores		{StoresMap}				The stores to start with
+	 * @param initialStores		{StoresMap}				The stores to start with
 	 * @param finishOnServer	{FinishOnServerFunc}	A function that finishes a dispatching an action on the server
 	 */
-	constructor(initalStores: StoresMap, finishOnServer: FinishOnServerFunc) {
-		super(initalStores);
+	constructor(initialStores: StoresMap, finishOnServer: FinishOnServerFunc) {
+		super(initialStores);
 
 		this._finishOnServer = finishOnServer;
 	}
@@ -318,3 +329,5 @@ export class ClientDispatchHandler extends DispatchHandler {
 		});
 	}
 }
+
+export const createDispatchHandler = DispatchHandler.createDispatchHandler;
