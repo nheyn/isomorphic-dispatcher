@@ -173,7 +173,7 @@ docker run -it --rm dispatcher-test
 Basic usage is given above. More detailed documentation is before class/function definitions within the code.
 
 ### Plans
-* Re-write tests
+* Add DispatchHandler Subclass Tests
 * Only call subscribers when the state of a Store has mutated
 * Create Express middleware and/or Socket.io bindings, that automatically connects the client and the server Dispatchers
 * Create flow type definitions for public API
