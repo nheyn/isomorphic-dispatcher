@@ -198,15 +198,28 @@ export class ServerDispatchHandler extends DispatchHandler {
 	_onServerArg: any;
 
 	/**
-	 * The constructor for the DispatchHandler.
+	 * The constructor for the ServerDispatchHandler.
 	 *
 	 * @param initialStores	{StoresMap}	The stores to start with
-	 * @param onServerArg	{any}		The arg
+	 * @param onServerArg	{any}		The arg to pass to the 'onServer' argument of the updaters
 	 */
 	constructor(initialStores: StoresMap, onServerArg: any) {
 		super(initialStores);
 
 		this._onServerArg = onServerArg;
+	}
+
+	/**
+	 * The create a ServerDispatchHandler with the given initial stores and passes the given arg to the 'onServer' arg
+	 * of the updaters (3rd argument).
+	 *
+	 * @param initialStores	{StoresMap}			The stores to start with
+	 * @param onServerArg	{any}				The arg to pass to the 'onServer' argument of the updaters
+	 *
+	 * @return				{DispatchHandler}	The new ServerDispatchHandler
+	 */
+	static createServerDispatchHandler(initialStores: StoresMap, onServerArg: any): DispatchHandler {
+		return new ServerDispatchHandler(initialStores, onServerArg);
 	}
 
 	_performDispatch(stores: StoresMap, action: Action): Promise<StoresMap> {
@@ -222,7 +235,7 @@ export class ClientDispatchHandler extends DispatchHandler {
 	_finishOnServer: FinishOnServerFunc;
 
 	/**
-	 * The constructor for the DispatchHandler.
+	 * The constructor for the ClientDispatchHandler.
 	 *
 	 * @param initialStores		{StoresMap}				The stores to start with
 	 * @param finishOnServer	{FinishOnServerFunc}	A function that finishes a dispatching an action on the server
@@ -231,6 +244,19 @@ export class ClientDispatchHandler extends DispatchHandler {
 		super(initialStores);
 
 		this._finishOnServer = finishOnServer;
+	}
+
+	/**
+	 * The create a ServerDispatchHandler with the given initial stores and the function to finish the a dispatch in
+	 * the ServerDispatcher.
+	 *
+	 * @param initialStores		{StoresMap}				The stores to start with
+	 * @param finishOnServer	{FinishOnServerFunc}	A function that finishes a dispatching an action on the server
+	 *
+	 * @return					{DispatchHandler}		The new ServerDispatchHandler
+	 */
+	static createClientDispatchHandler(initialStores: StoresMap, finishOnServer: FinishOnServerFunc): DispatchHandler {
+		return new ClientDispatchHandler(initialStores, finishOnServer);
 	}
 
 	_performDispatch(stores: StoresMap, action: Action): Promise<StoresMap> {
@@ -305,8 +331,6 @@ export class ClientDispatchHandler extends DispatchHandler {
 				updatedStoresPromises = updatedStoresPromises.set(storeName,
 					store.dispatch(action, {
 						finishOnServer(state, index) {
-							resolve({ state, index });
-
 							const responsePlaceholder = new PromisePlaceholder();
 							responsePlaceholders = responsePlaceholders.set(storeName, responsePlaceholder);
 							return responsePlaceholder.getPromise();
@@ -331,3 +355,5 @@ export class ClientDispatchHandler extends DispatchHandler {
 }
 
 export const createDispatchHandler = DispatchHandler.createDispatchHandler;
+export const createServerDispatchHandler = ServerDispatchHandler.createServerDispatchHandler;
+export const createClientDispatchHandler = ClientDispatchHandler.createClientDispatchHandler;

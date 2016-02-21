@@ -8,14 +8,14 @@ const Immutable = require('immutable');
 
 const DispatchHandler = require('../src/DispatchHandler');
 
-describe('DispatchHandler', () => {
+function describe_DispatchHandler(createDispatchHandler) {
 	it('will return the initial store before any actions are added', () => {
 		const stores = Immutable.Map({
 			store0: createStoreMock(),
 			store1: createStoreMock(),
 			store2: createStoreMock()
 		});
-		const dispatchHandler = DispatchHandler.createDispatchHandler(stores);
+		const dispatchHandler = createDispatchHandler(stores);
 
 		expect(dispatchHandler.getStores()).toEqual(stores);
 	});
@@ -24,7 +24,7 @@ describe('DispatchHandler', () => {
 		const store0 = createStoreMock();
 		const store1 = createStoreMock();
 		const store2 = createStoreMock();
-		const dispatchHandler = DispatchHandler.createDispatchHandler(Immutable.Map({ store0, store1, store2 }));
+		const dispatchHandler = createDispatchHandler(Immutable.Map({ store0, store1, store2 }));
 
 		dispatchHandler.pushAction({ type: 'TEST_ACTION' });
 
@@ -35,7 +35,7 @@ describe('DispatchHandler', () => {
 
 	pit('will return a promise form "pushAction" will resolve after the action finished dispatching', () => {
 		const store = createStoreMock();
-		const dispatchHandler = DispatchHandler.createDispatchHandler(Immutable.Map({ store }));
+		const dispatchHandler = createDispatchHandler(Immutable.Map({ store }));
 
 		return dispatchHandler.pushAction({ type: 'TEST_ACTION' }).then(() => {
 			const dispatchedActions = getActions(store);
@@ -46,7 +46,7 @@ describe('DispatchHandler', () => {
 
 	pit('will return a promise form "pushActions" will resolve after the all the actions finish dispatching', () => {
 		const store = createStoreMock();
-		const dispatchHandler = DispatchHandler.createDispatchHandler(Immutable.Map({ store }));
+		const dispatchHandler = createDispatchHandler(Immutable.Map({ store }));
 
 		return dispatchHandler.pushActions([
 			{ type: 'TEST_ACTION_0' },
@@ -64,7 +64,7 @@ describe('DispatchHandler', () => {
 	pit('will return a promise from "pushAction" that resolves to the updated stores', () => {
 		const updatedStore = createStoreMock();
 		const store = createStoreMock(updatedStore);
-		const dispatchHandler = DispatchHandler.createDispatchHandler(Immutable.Map({ store }));
+		const dispatchHandler = createDispatchHandler(Immutable.Map({ store }));
 
 		return dispatchHandler.pushAction({ type: 'TEST_ACTION' }).then((newStores) => {
 			expect(newStores.get('store')).toEqual(updatedStore);
@@ -77,7 +77,7 @@ describe('DispatchHandler', () => {
 		const updatedStore2 = createStoreMock();
 		const store = createStoreMock(updatedStore0);
 
-		const dispatchHandler = DispatchHandler.createDispatchHandler(Immutable.Map({ store }));
+		const dispatchHandler = createDispatchHandler(Immutable.Map({ store }));
 
 		return dispatchHandler.pushActions([
 			{ type: 'TEST_ACTION_0' },
@@ -89,7 +89,7 @@ describe('DispatchHandler', () => {
 	});
 
 	pit('will broadcast an "update" event after each action finishes', () => {
-		const dispatchHandler = DispatchHandler.createDispatchHandler(Immutable.Map({ store: createStoreMock() }));
+		const dispatchHandler = createDispatchHandler(Immutable.Map({ store: createStoreMock() }));
 
 		// Update update event functions
 		const updateFunc0 = jest.genMockFunction();
@@ -116,7 +116,7 @@ describe('DispatchHandler', () => {
 		const updatedStore0 = createStoreMock();
 		const updatedStore1 = createStoreMock();
 		const updatedStore2 = createStoreMock();
-		const dispatchHandler = DispatchHandler.createDispatchHandler(Immutable.Map({
+		const dispatchHandler = createDispatchHandler(Immutable.Map({
 			store0: createStoreMock(updatedStore0),
 			store1: createStoreMock(updatedStore1),
 			store2: createStoreMock(updatedStore2)
@@ -135,14 +135,33 @@ describe('DispatchHandler', () => {
 			});
 		});
 	});
+}
+describe('DispatchHandler', () => describe_DispatchHandler(DispatchHandler.createDispatchHandler));
+
+describe('ServerDispatchHandler', () => {
+	describe_DispatchHandler((stores) => DispatchHandler.createServerDispatchHandler(stores, {}));
+
+	//TODO, add client tests
 });
 
-//TODO, add tests for subclass
+describe('ClientDispatchHandler', () => {
+	describe_DispatchHandler((stores) => DispatchHandler.createClientDispatchHandler(stores, () => {
+		return Promise.resolve(stores);
+	}));
+
+	//TODO, add client tests
+});
 
 // Mocks
 function createStoreMock(newStore) {
 	const store = jest.genMockFunction();
-	store.dispatch = jest.genMockFunction().mockReturnValue(Promise.resolve(newStore? newStore: store));
+	store.dispatch = jest.genMockFunction().mockImplementation((action, settings) => {
+		return Promise.resolve(newStore? newStore: store).then((updatedStore) => {
+			if(settings && settings.finishedUpdaters) settings.finishedUpdaters(true);
+
+			return updatedStore;
+		});
+	});
 
 	return store;
 }
