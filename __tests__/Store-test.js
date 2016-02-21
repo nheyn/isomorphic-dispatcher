@@ -303,27 +303,25 @@ describe('Store', () => {
 			return new Promise((resolve) => {
 				resolve(updatedState);
 
-				//TODO, timeout function is not ever called (over 5000 msec)
-				/*setTimeout(() => {
+				setTimeout(() => {
 					resolve(updatedState)
-				}, 50);*/
+				}, 50);
 			});
 		});
 
-		/*let didFinish = false;
+		const updatedStorePromise = store.dispatch({ type: 'testAction' });
+
+
+		// Check store did wait for timeout to finish
 		let didCheck = false;
 		setTimeout(() => {
-			expect(didFinish).toBe(false);
-
 			didCheck = true;
-		}, 25);*/
+		}, 25);
+		jest.runAllTimers();
 
-
-		return store.dispatch({ type: 'testAction' }).then((newStore) => {
+		return updatedStorePromise.then((newStore) => {
 			expect(newStore.getState()).toEqual(updatedState);
-
-			/*expect(didCheck).toBe(true);
-			didFinish = true;*/
+			expect(didCheck).toBe(true);
 		});
 	});
 });
