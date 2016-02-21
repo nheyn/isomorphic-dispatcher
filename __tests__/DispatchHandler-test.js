@@ -141,7 +141,44 @@ describe('DispatchHandler', () => describe_DispatchHandler(DispatchHandler.creat
 describe('ServerDispatchHandler', () => {
 	describe_DispatchHandler((stores) => DispatchHandler.createServerDispatchHandler(stores, {}));
 
-	//TODO, add client tests
+	pit('passes the "onServer" argument to each of the stores', () => {
+		const store0 = createStoreMock();
+		const store1 = createStoreMock();
+		const store2 = createStoreMock();
+
+		const dispatchHandler = DispatchHandler.createServerDispatchHandler(
+			Immutable.Map({ store0, store1, store2}),
+			{ passed: 'arg' }
+		);
+
+		// Perform single dispatch
+		return dispatchHandler.pushAction({ type: 'TEST_ACTION' }).then(() => {
+			expect(getOnServerArgs(store0)).toEqual([{ passed: 'arg' }]);
+			expect(getOnServerArgs(store1)).toEqual([{ passed: 'arg' }]);
+			expect(getOnServerArgs(store2)).toEqual([{ passed: 'arg' }]);
+		});
+	});
+
+	pit('passes the "onServer" argument for every dispatch', () => {
+		const store = createStoreMock();
+		const dispatchHandler = DispatchHandler.createServerDispatchHandler(
+			Immutable.Map({ store }),
+			{ passed: 'arg' }
+		);
+
+		// Perform multiple dispatches
+		return dispatchHandler.pushActions([
+			{ type: 'TEST_ACTION_0' },
+			{ type: 'TEST_ACTION_1' },
+			{ type: 'TEST_ACTION_2' }
+		]).then(() => {
+			expect(getOnServerArgs(store)).toEqual([
+				{ passed: 'arg' },
+				{ passed: 'arg' },
+				{ passed: 'arg' }
+			]);
+		});
+	});
 });
 
 describe('ClientDispatchHandler', () => {
