@@ -2,20 +2,26 @@
 *A redux style Dispatcher that can be used on both the client and server*
 
 Dispatcher/Store classes that can be used for data flow in isomorphic javascript apps.
-Based on [async-dispatcher](https://github.com/nheyn/async-dispatcher) and [redux](https://github.com/rackt/redux/) projects.
+Based on [redux](https://github.com/rackt/redux/) and [async-dispatcher](https://github.com/nheyn/async-dispatcher)  projects.
 
 ### Features
 * The Dispatcher sends actions to multiple Stores
 * Subscriber functions can be added to all of a Dispatchers Stores or just one
 * Stores can use any data structure for its state
 * Stores can use multiple updater functions to mutate their state
-* Updater functions can force part of their code to run only on the server
+* Updater functions can finish running on the server (to query a database, make api calls, etc) with one function call
+	* NOTE: The connection to the server must be implemented separately, see [express-isomorphic-dispatcher](#) for use with express or an example for custom implementations (still abstracting out of another project, will  be on Github soon)
 
 ### Dependencies
 * ES2015(ES6) Promises
 	* Must include an ES2015 compatible Promises library, tested using [Babel polyfill](https://babeljs.io/docs/usage/polyfill/)
-* Immutable JS
-	* Automatically included with isomorphic-dispatcher
+
+### Install
+Isomorphic Dispatcher is hosted on npm, and can be installed using:
+
+```
+npm install --save-dev isomorphic-dispatcher
+```
 
 ### Usage
 ##### Store
@@ -39,11 +45,13 @@ store = store.register(function(state, action) {
 });
 ```
 
-The updater is also sent a third argument, which is a function. It can be called with a function that will always run  on the server. The return value of the 'onServer' function must be returned from the updater. The return value of the callback passed to the 'onServer' function, which can be a Promise or normal value, will be the new state after the updater finished running.
+The updater is also sent a third argument, which can be used to finish the current dispatch on the server. When called the current dispatch will pick up from the where the 'onServer' function is called. The value returned from the 'onServer' function must be returned from the updater in order for the server to be called. For performance reason, the action should be checked before the 'onServer' function is called.
 ```
 store = store.register(function(state, action, onServer) {
+	if(action.type !== 'CORRECT_TYPE') return state;
+
 	return onServer(function(serverArg) {
-		// Code that should only run on ther server
+		// Code that should only run on the server
 
 		return state;
 	});
@@ -53,11 +61,6 @@ store = store.register(function(state, action, onServer) {
 
 ##### Dispatcher
 Dispatchers contain a set of Stores, where the same actions are dispatched to all of the Stores at the same time.
-They are created using the 'createDispatcher' function, which is passed an object that contains the Stores to be used by the Dispatcher.
-```
-var stores = { storeName: store };
-var dispatcher = IsomorphicDispatcher.createDispatcher(stores);
-```
 
 To update the states of the Stores use the 'dispatch' method. The return value is a Promise that contains the updated states for all of the Stores.
 ```
@@ -72,7 +75,7 @@ dispatcher.dispatch(action).then(function(updatedStates) {
 ```
 
 To get the state for all the Stores use the 'getStateForAll' method.
-It will throw an Error if the called while a 'dispatch' is happening.
+If a dispatch is currently happening, it will return the state before the dispatch began.
 ```
 var states = dispatcher.getStateForAll();
 for(var storeName in states) {
@@ -83,14 +86,13 @@ for(var storeName in states) {
 ```
 
 To get the state of a single Store use the 'getStateFor' method.
-It will throw an Error if the called while a 'dispatch' is happening.
 ```
 var state = dispatcher.getStateFor('storeName');
 ```
 
-Use the 'subscribeToAll' method to add a subscriber to the changes the Stores.
+Use the 'subscribeToAll' method to subscribe to the changes in the Stores.
 The subscriber will be passed an object that contains the updated states in the Stores.
-It returns a function will unsubscribe the subscriber.
+It returns a function that will, when called, unsubscribe the subscriber.
 ```
 // Subscribe to all stores
 var unsubscribe = dispatcher.subscribeToAll(function(updatedStates) {
@@ -105,9 +107,9 @@ var unsubscribe = dispatcher.subscribeToAll(function(updatedStates) {
 unsubscribe();
 ```
 
-Use the 'subscribeTo' method to add a subscriber to the changes in a single Stores.
+Use the 'subscribeTo' method to add to subscribe to the changes in a single Stores.
 The subscriber will be passed the updated state for the given Store.
-It returns a function will unsubscribe the subscriber.
+It returns a function that will, when called, unsubscribe the subscriber.
 ```
 // Subscribe to 'storeName'
 var unsubscribe = dispatcher.subscribeTo('storeName', function(updatedState) {
@@ -118,63 +120,64 @@ var unsubscribe = dispatcher.subscribeTo('storeName', function(updatedState) {
 unsubscribe();
 ```
 
-##### ClientDispatcher
-The Dispatcher for the client is created using the 'createClientDispatcher' function.
-The first argument is the same array of Stores that passed to the 'createServerDispatcher' function on server.
-Its second argument is a function that should call the 'startDispatchAt' method of the ServerDispatcher.
+##### DispatcherFactory
+Dispatcher are made using DispatcherFactory objects.
+
+
+*Server*
+
+On the server side, use the 'createServerFactory' function to make a new Dispatcher factory.
+It takes an object that contains the Stores used by the Dispatchers, along with an object.
+The object will be passed to the 'onServer' functions in every updater that calls it.
 ```
-function handleDispatchOnServer(action, startingPoints) => {
-	return Promise((resolve, reject) => {
+var stores = { ... };
+var serverArg = { some: 'object' };
+var dispatcherFactory = IsomorphicDispatcher.createClientFactory(stores, serverArg);
+```
+
+*Client*
+
+On the client side, use the 'createClientFactory' function to make a new Dispatcher factory.
+It takes an object that contains the Stores used by the Dispatchers, along with a function.
+The function should call the sever, and return the updated states from the response as a Promise.
+```
+var stores = { ... };
+var dispatcherFactory = IsomorphicDispatcher.createClientFactory(stores, function(pausePoints, actions) {
+	return Promise(function(resolve, reject) {
 		// Send action and starting points to the server
 
 		// Resolve the states returned from the server
 	});
-}
-
-var serverDispatcher = IsomorphicDispatcher.createClientDispatcher(stores, handleDispatchOnServer);
+});
 ```
 
-##### ServerDispatcher
-The Dispatcher for the client is created using the 'createServerDispatcher' function.
-It takes the same array of Stores that passed to the 'createDispatcher' function.
+To create a Dispatcher with the initial state in its Stores, call the 'getInitialDispatcher' method of the Factory.
 ```
-var serverDispatcher = IsomorphicDispatcher.createServerDispatcher(stores);
+var dispatcher = dispatcherFactory.getInitialDispatcher();
 ```
 
-To add the argument that will be given to the 'onServer' callback, see Store updaters, use the 'cloneWithOnServerArg' method.
+To create a Dispatcher with an updated state use the 'getDispatcherAfter' method of the Factory.
+The first argument is an array of actions to perform on the dispatcher.
+The second is the place to start the dispatch at, this can be used when connecting the client and server Dispatchers.
+These arguments, actions and startingPoints, are the same as the ones that are passed to function used to create the client's DispatcherFactory.
 ```
-var onServerArg = {};
-var serverDispatcherWithArg = serverDispatcher.cloneWithOnServerArg(arg);
-```
-*NOTE: This method creates a new Dispatcher, so use the value returned from 'cloneWithOnServerArg'*
-
-To connection with the ClientDispatcher, call the 'startDispatchAt' method when the second argument of 'createClientDispatcher' function is called.
-It should be passed the actions and starting points from the 'createClientDispatcher' callback.
-The states returned from 'startDispatchAt' (on the server) should be returned as a Promise in the 'createClientDispatcher' callback (on the client).
-```
-// Call after 'handleDispatchOnServer' is called on the server
-function handleDispatchFromClient(function(action, startingPoints) {
-	return serverDispatcher.startDispatchAt(action, startingPoints);
-}
+var dispatcher = dispatcherFactory.getDispatcherAfter(actions, startingPoints);
 ```
 
 ### Tests
 Test are written using [jest](https://facebook.github.io/jest/). Static type checking is done use [Flowtype](http://flowtype.org).
 
-To perform tests, build/run a Docker image/container using:
+To perform static type check and the tests, build/run a Docker image/container using:
 ```
 docker build -t dispatcher-test <path to repo>
 docker run -it --rm dispatcher-test
 ```
 
-*NOTE: Currently test are empty. They need to be re-written for the new version*
-
 ### Documentation
 Basic usage is given above. More detailed documentation is before class/function definitions within the code.
 
 ### Plans
-* Add DispatchHandler Subclass Tests
-* Only call subscribers when the state of a Store has mutated
-* Create Express middleware and/or Socket.io bindings, that automatically connects the client and the server Dispatchers
+* Only call subscribers when the state of the Store that was subscribed to has mutated
+* Abstract out Express middleware (will be called express-isomorphic-dispatcher) from another project
 * Create flow type definitions for public API
 * Get documentation from code
