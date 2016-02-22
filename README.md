@@ -132,7 +132,7 @@ The object will be passed to the 'onServer' functions in every updater that call
 ```
 var stores = { ... };
 var serverArg = { some: 'object' };
-var dispatcherFactory = IsomorphicDispatcher.createClientFactory(stores, serverArg);
+var dispatcherFactory = IsomorphicDispatcher.createServerFactory(stores, serverArg);
 ```
 
 *Client*
