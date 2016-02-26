@@ -50,11 +50,16 @@ export default class DispatcherFactory {
 	 * @param createDispatchHandler 		{Function}		A function that creates new DispatchHandlers
 	 * @param createSubscriptionHandler 	{[Function]}	A function that creates new SubscriptionHandlers
 	 */
-	construtor(
+	constructor(
 		initialStores: StoresMap,
 		createDispatchHandler: CreateDispatchHandlerFunc,
 		createSubscriptionHandler?: CreateSubscriptionHandlerFunc
 	) {
+		if(!initialStores) throw new Error('DispatcherFactory requires stores');
+		if(typeof createDispatchHandler !== 'function') {
+			throw new Error('DispatcherFactory requires a createDispatchHandler function');
+		}
+
 		this._initialStores = initialStores;
 		this._createDispatchHandler = createDispatchHandler;
 		this._createSubscriptionHandler = createSubscriptionHandler? createSubscriptionHandler: () => null;

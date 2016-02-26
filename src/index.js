@@ -31,7 +31,7 @@ export function createServerFactory(stores: StoresObject, onServerArg: any): Dis
 			return new ServerDispatchHandler(currStores, onServerArg);
 		},
 		createSubscriptionHandler(): SubscriptionHandler {
-			return createSubscriptionHandler();
+			return createSubscriptionHandler()
 		}
 	});
 }
