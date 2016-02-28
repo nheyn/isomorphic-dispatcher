@@ -10,7 +10,7 @@ Based on [redux](https://github.com/rackt/redux/) and [async-dispatcher](https:/
 * Stores can use any data structure for its state
 * Stores can use multiple updater functions to mutate their state
 * Updater functions can finish running on the server (to query a database, make api calls, etc) with one function call
-	* NOTE: The connection to the server must be implemented separately, see [express-isomorphic-dispatcher](#) for use with express or an example for custom implementations (still abstracting out of another project, will  be on Github soon)
+	* NOTE: The connection to the server must be implemented separately, see [express-isomorphic-dispatcher](https://github.com/nheyn/express-isomorphic-dispatcher) for use with express or an example for custom implementations
 
 ### Dependencies
 * ES2015(ES6) Promises
@@ -178,6 +178,5 @@ Basic usage is given above. More detailed documentation is before class/function
 
 ### Plans
 * Only call subscribers when the state of the Store that was subscribed to has mutated
-* Abstract out Express middleware (will be called express-isomorphic-dispatcher) from another project
 * Create flow type definitions for public API
 * Get documentation from code
