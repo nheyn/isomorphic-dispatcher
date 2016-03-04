@@ -275,7 +275,10 @@ export class ClientDispatchHandler extends DispatchHandler {
 				let responsePlaceholdersLeft = responsePlaceholders;
 
 				// Send to server
-				this._finishOnServer(pausePoints, [action, ...queuedActions]).then((responseStates) => {
+				const pausePointsObject = pausePoints.toObject();
+				const actions = [action, ...queuedActions];
+
+				this._finishOnServer(pausePointsObject, actions).then((responseStates) => {
 					for(let storeName in responseStates) {
 						const responseState = responseStates[storeName];
 
