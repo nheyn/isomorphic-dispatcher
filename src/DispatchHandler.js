@@ -263,7 +263,8 @@ export class ClientDispatchHandler extends DispatchHandler {
 		// Preform client side dispatch
 		const clientDispatchPromise = this._performClientDispatch(stores, action);
 
-		return clientDispatchPromise.then(({ updatedStoresPromise, pausePoints, responsePlaceholders}) => {
+		return clientDispatchPromise.then(({ updatedStoresPromise, pausePoints, responsePlaceholders }) => {
+
 			// Finish on server, if any 'onServer' was called
 			if(responsePlaceholders.size > 0) {
 				const actionQueue = this._actionQueue? this._actionQueue: Immutable.List();
@@ -331,6 +332,9 @@ export class ClientDispatchHandler extends DispatchHandler {
 				updatedStoresPromises = updatedStoresPromises.set(storeName,
 					store.dispatch(action, {
 						finishOnServer(state, index) {
+							resolve({ state, index });
+
+							// Return value from Dispatcher.dispatch calls
 							const responsePlaceholder = new PromisePlaceholder();
 							responsePlaceholders = responsePlaceholders.set(storeName, responsePlaceholder);
 							return responsePlaceholder.getPromise();
