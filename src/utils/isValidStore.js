@@ -7,24 +7,24 @@
  *
  * @param possibleStore {any}   The value to check if it is a store
  *
- * @return				{bool}	TRUE if the passed object fits the Store API, else FALSE.
+ * @return        {bool}  TRUE if the passed object fits the Store API, else FALSE.
  */
 export default function isValidStore(possibleStore: any): boolean {
-	const publicStoreMethods = [
-		'finishOnServerUsing',
-		'setOnServerArg',
-		'register',
-		'dispatch',
-		'startDispatchAt',
-		'getState'
-	];
+  const publicStoreMethods = [
+    'finishOnServerUsing',
+    'setOnServerArg',
+    'register',
+    'dispatch',
+    'startDispatchAt',
+    'getState'
+  ];
 
-	return publicStoreMethods.reduce(
-		(containsPervMethod, methodName) => {
-			if(!containsPervMethod) return false;
+  return publicStoreMethods.reduce(
+    (containsPervMethod, methodName) => {
+      if(!containsPervMethod) return false;
 
-			return possibleStore[methodName] && typeof possibleStore[methodName] === 'function';
-		},
-		true
-	);
+      return possibleStore[methodName] && typeof possibleStore[methodName] === 'function';
+    },
+    true
+  );
 }

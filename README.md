@@ -10,11 +10,11 @@ Based on [redux](https://github.com/rackt/redux/) and [async-dispatcher](https:/
 * Stores can use any data structure for its state
 * Stores can use multiple updater functions to mutate their state
 * Updater functions can finish running on the server (to query a database, make api calls, etc) with one function call
-	* NOTE: The connection to the server must be implemented separately, see [express-isomorphic-dispatcher](https://github.com/nheyn/express-isomorphic-dispatcher) for use with express or an example for custom implementations
+  * NOTE: The connection to the server must be implemented separately, see [express-isomorphic-dispatcher](https://github.com/nheyn/express-isomorphic-dispatcher) for use with express or an example for custom implementations
 
 ### Dependencies
 * ES2015(ES6) Promises
-	* Must include an ES2015 compatible Promises library, tested using [Babel polyfill](https://babeljs.io/docs/usage/polyfill/)
+  * Must include an ES2015 compatible Promises library, tested using [Babel polyfill](https://babeljs.io/docs/usage/polyfill/)
 
 ### Install
 Isomorphic Dispatcher is hosted on npm, and can be installed using:
@@ -38,23 +38,23 @@ var store  = IsomorphicDispatcher.createStore(initialState);
 The state of Store can be mutated though updater functions. The function is sent the current state of the store and the action dispatched to the store. It should return the updated state, the return value can be a Promise. Updaters can be added using the 'register' method.
 ```
 store = store.register(function(state, action) {
-	// Update state for action
-	//NOTE, do not mutate either argument
+  // Update state for action
+  //NOTE, do not mutate either argument
 
-	return state;
+  return state;
 });
 ```
 
 The updater is also sent a third argument, which can be used to finish the current dispatch on the server. When called the current dispatch will pick up from the where the 'onServer' function is called. The value returned from the 'onServer' function must be returned from the updater in order for the server to be called. For performance reason, the action should be checked before the 'onServer' function is called.
 ```
 store = store.register(function(state, action, onServer) {
-	if(action.type !== 'CORRECT_TYPE') return state;
+  if(action.type !== 'CORRECT_TYPE') return state;
 
-	return onServer(function(serverArg) {
-		// Code that should only run on the server
+  return onServer(function(serverArg) {
+    // Code that should only run on the server
 
-		return state;
-	});
+    return state;
+  });
 });
 ```
 *NOTE: The Store class is immutable, so use the Store returned from the '.register' method*
@@ -66,11 +66,11 @@ To update the states of the Stores use the 'dispatch' method. The return value i
 ```
 var action = { type: 'SOME_ACTION' };
 dispatcher.dispatch(action).then(function(updatedStates) {
-	for(var storeName in updatedStates) {
-		var state = updatedStates[storeName];
+  for(var storeName in updatedStates) {
+    var state = updatedStates[storeName];
 
-		// Perform updates for new state
-	}
+    // Perform updates for new state
+  }
 });
 ```
 
@@ -79,9 +79,9 @@ If a dispatch is currently happening, it will return the state before the dispat
 ```
 var states = dispatcher.getStateForAll();
 for(var storeName in states) {
-	var state = states[storeName];
+  var state = states[storeName];
 
-	// Perform updates for new state
+  // Perform updates for new state
 }
 ```
 
@@ -96,11 +96,11 @@ It returns a function that will, when called, unsubscribe the subscriber.
 ```
 // Subscribe to all stores
 var unsubscribe = dispatcher.subscribeToAll(function(updatedStates) {
-	for(var storeName in updatedStates) {
-		var state = updatedStates[storeName];
+  for(var storeName in updatedStates) {
+    var state = updatedStates[storeName];
 
-		// Perform updates for new state
-	}
+    // Perform updates for new state
+  }
 });
 
 // Unsubscribe from all stores
@@ -113,7 +113,7 @@ It returns a function that will, when called, unsubscribe the subscriber.
 ```
 // Subscribe to 'storeName'
 var unsubscribe = dispatcher.subscribeTo('storeName', function(updatedState) {
-	 // Perform updates for new state
+   // Perform updates for new state
 });
 
 // Unsubscribe from 'storeName'
@@ -143,11 +143,11 @@ The function should call the sever, and return the updated states from the respo
 ```
 var stores = { ... };
 var dispatcherFactory = IsomorphicDispatcher.createClientFactory(stores, function(pausePoints, actions) {
-	return Promise(function(resolve, reject) {
-		// Send action and starting points to the server
+  return Promise(function(resolve, reject) {
+    // Send action and starting points to the server
 
-		// Resolve the states returned from the server
-	});
+    // Resolve the states returned from the server
+  });
 });
 ```
 
