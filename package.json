@@ -18,7 +18,7 @@
 		"babel-preset-react": "^6.3.0",
 		"babel-jest": "6",
 		"jest-cli": "^0.8.2",
-		"flow-bin": "^0.20.0"
+		"flow-bin": "^0.22.0"
 	},
 	"scripts": {
 		"flow": "./node_modules/.bin/flow",
