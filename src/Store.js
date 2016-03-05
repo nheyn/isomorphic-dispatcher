@@ -83,7 +83,11 @@ export default class Store<S> {
 		}
 
 		// Do nothing if there are no updaters to perform
-		if(this._updaters.count() === 0)	return Promise.resolve(this);
+		if(this._updaters.count() === 0) {
+			if(settings.finishedUpdaters) settings.finishedUpdaters(true);
+
+			return Promise.resolve(this);
+		}
 
 		// Dispatch to each updater
 		const startingState = typeof settings.replaceState !== 'undefined'? settings.replaceState: this._state;
