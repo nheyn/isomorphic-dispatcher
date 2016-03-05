@@ -87,6 +87,8 @@ export default class DispatchHandler {
 	 *											finished dispatching
 	 */
 	pushActions(actions: Array<Action>): Promise<StoresMap> {
+		if(actions.length === 0) return Promise.resolve(this._stores);
+
 		// Add each action to the queue
 		const storeMapPromises = actions.map((action) => this.pushAction(action));
 
