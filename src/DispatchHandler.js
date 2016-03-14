@@ -153,7 +153,7 @@ export default class DispatchHandler {
       this._onError(err);
 
       return stores;
-    })
+    });
 
     // Return the stores after dispatch finishes
     return updatedStoresPromises.then((currentStores) => {
@@ -169,10 +169,14 @@ export default class DispatchHandler {
       this._startDispatch(currentStores, nextAction).then((nextStores) => {
         // Resolve promise that was returned from 'pushAction'
         promisePlaceholder.resolve(nextStores);
+      }).catch((err) => {
+        this._onError(err);
+
+        promisePlaceholder.reject(err);
       });
 
       return currentStores;
-    }).catch((err) => { //NOTE, this shouldn't be need (just in case)
+    }).catch((err) => {
       this._onError(err);
 
       throw err;
@@ -297,8 +301,8 @@ export class ClientDispatchHandler extends DispatchHandler {
           // Return result for queued actions
           if(queuedPromisePlaceholders.size > 0) {
             queuedPromisePlaceholders.forEach((queuedPromisePlaceholder) => {
-              //Give result to dispatch caller
-              queuedPromisePlaceholder.resolve(responseStates);
+              // Give result to dispatch caller
+              queuedPromisePlaceholder.resolve(updatedStoresPromise);
             });
 
             queuedPromisePlaceholders = queuedPromisePlaceholders.clear();
@@ -306,7 +310,9 @@ export class ClientDispatchHandler extends DispatchHandler {
 
           // Send errors if any stores are not returned
           if(responsePlaceholdersLeft.size > 0) {
-            throw new Error('No state for store missing from server response');
+            const storeNames = responsePlaceholdersLeft.map((_, storeName) => storeName ).toArray().join(', ');
+
+            throw new Error(`Missing states(${storeNames}) from response of server dispatch`);
           }
         }).catch((err) => {
           // Send error to stores
@@ -353,7 +359,7 @@ export class ClientDispatchHandler extends DispatchHandler {
       });
     });
 
-    // Wait for client  part of dispatch to finish
+    // Wait for client part of dispatch to finish
     return resolveMapOfPromises(pausePointsPromises).then((maybePausePoints) => {
       const updatedStoresPromise = resolveMapOfPromises(updatedStoresPromises);
       const pausePoints = maybePausePoints.filter((maybePausePoint) => maybePausePoint? true: false);

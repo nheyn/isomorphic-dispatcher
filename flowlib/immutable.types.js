@@ -35,5 +35,6 @@ declare module "immutable" {
     forEach(sideEffect: (value: V, key: K) => void): void;
     toJS(): {[key: K]: V};
     toObject(): {[key: K]: V};
+    toArray(): Array<V>;
   }
 }

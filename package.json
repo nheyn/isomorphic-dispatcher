@@ -21,14 +21,12 @@
     "flow-bin": "^0.22.0"
   },
   "scripts": {
-    "flow": "./node_modules/.bin/flow",
-    "flow:stop": "./node_modules/.bin/flow stop",
+    "flow": "flow check",
     "test": "jest",
     "check": "npm run flow && npm run test",
     "build:babel": "babel ./src/ -d ./lib/",
     "build": "npm run check && npm run build:babel",
-    "prepublish": "npm run build",
-    "clean": "rm -rf ./lib/ && npm flow:stop"
+    "prepublish": "npm run build"
   },
   "jest": {
     "scriptPreprocessor": "<rootDir>/node_modules/babel-jest"

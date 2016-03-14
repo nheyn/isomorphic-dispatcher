@@ -253,7 +253,7 @@ describe('ClientDispatchHandler', () => {
         expect(actions).toContain({ type: 'TEST_ACTION_1' });
         expect(actions).toContain({ type: 'TEST_ACTION_2' });
 
-        return Promise.resolve({});
+        return Promise.resolve({ store: {} });
       }
     );
 
