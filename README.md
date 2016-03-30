@@ -20,7 +20,7 @@ Based on [redux](https://github.com/rackt/redux/) and [async-dispatcher](https:/
 Isomorphic Dispatcher is hosted on npm, and can be installed using:
 
 ```
-npm install --save-dev isomorphic-dispatcher
+npm install --save isomorphic-dispatcher
 ```
 
 ### Usage
